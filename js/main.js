@@ -1,103 +1,145 @@
 // ─────────────────────────────────────────────────────────────────────────
-// ESTADO GLOBAL + NAVEGAÇÃO (equivalente ao st.session_state / st.tabs)
+// ESTADO GLOBAL + NAVEGAÇÃO
+// Fluxo: Login → Menu (Gerencial/Operacional/Sair) → Submenu (páginas da
+// categoria) → Página (com Voltar/Sair no topo) — igual ao app.py.
 // ─────────────────────────────────────────────────────────────────────────
+
+const MENU_GERENCIAL = [
+  { chave: 'dashboard', label: 'Dashboard' },
+  { chave: 'motoristas', label: 'Motoristas' },
+  { chave: 'frota', label: 'Frota' },
+  { chave: 'usuarios', label: 'Usuários' },
+];
+const MENU_OPERACIONAL = [
+  { chave: 'viagens', label: 'Viagens' },
+  { chave: 'combustivel', label: 'Combustível' },
+  { chave: 'manutencao', label: 'Manutenção' },
+];
+
 const STATE = {
-  loggedIn: false,
-  username: '',
-  isAdmin: false,
-  page: 'Dashboard',
-  lancamentos: [],
-  lixeira: [],
-  categoriasMap: { despesa: [], receita: [] },
-  planejamentoMap: {},
-  editandoLancId: null,
-  temaEscuro: localStorage.getItem('fp_tema') === 'escuro',
-  filtroInicio: null,
-  filtroFim: null,
+  usuario: null,
+  categoriaAtual: null,
+  paginaAtual: null,
+  dados: { motoristas: [], veiculos: [], carretas: [], viagens: [], abastecimentos: [] },
+  editando: {}, // ex: { motoristaId, veiculoId, carretaId, usuarioId, viagemId, abastecimentoId }
 };
 
-function persistir() {
-  return salvarLancamentosNoBanco();
-}
-async function salvarLancamentosNoBanco() {
-  // Mantido apenas por compatibilidade semântica; as operações de dados
-  // já são feitas diretamente (insert/update/delete) em cada ação.
+async function iniciarApp() {
+  renderizarTela();
 }
 
-function aplicarTema() {
-  document.documentElement.setAttribute('data-theme', STATE.temaEscuro ? 'dark' : 'light');
-  const btn = qs('#btn-tema');
-  if (btn) btn.textContent = STATE.temaEscuro ? '☀️ Claro' : '🌙 Escuro';
+function renderizarTela() {
+  qs('#tela-login').style.display = 'none';
+  qs('#tela-menu').style.display = 'none';
+  qs('#tela-submenu').style.display = 'none';
+  qs('#app').style.display = 'none';
+
+  if (!STATE.usuario) {
+    qs('#tela-login').style.display = 'block';
+  } else if (!STATE.categoriaAtual) {
+    qs('#tela-menu').style.display = 'block';
+    renderMenuInicial();
+  } else if (!STATE.paginaAtual) {
+    qs('#tela-submenu').style.display = 'block';
+    renderSubmenu();
+  } else {
+    qs('#app').style.display = 'block';
+    renderPagina();
+  }
 }
 
-function irParaPagina(pagina) {
-  STATE.page = pagina;
-  qsa('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === pagina));
-  qsa('.page').forEach(p => p.style.display = 'none');
-  const alvo = qs('#page-' + pagina);
-  if (alvo) alvo.style.display = 'block';
-  renderizarPagina(pagina);
+function renderMenuInicial() {
+  const box = qs('#tela-menu');
+  const u = STATE.usuario;
+  let html = `
+    <div class="login-header">
+      <div class="login-brand">Aldemir<span>Transportes</span></div>
+      <div class="login-brand-sub">Bem-vindo(a), ${escapeHtml(u.nome)}</div>
+      <div class="login-brand-bar"></div>
+    </div>
+    <div class="menu-box">
+  `;
+  if (u.perfil === 'gerente') {
+    html += `<button class="btn btn-menu" id="menu-gerencial">Gerencial</button>`;
+  }
+  html += `
+      <button class="btn btn-menu" id="menu-operacional">Operacional</button>
+      <button class="btn btn-block" id="menu-sair" style="margin-top:18px;">Sair</button>
+    </div>
+  `;
+  box.innerHTML = html;
+
+  qs('#menu-gerencial')?.addEventListener('click', () => { STATE.categoriaAtual = 'gerencial'; renderizarTela(); });
+  qs('#menu-operacional').addEventListener('click', () => { STATE.categoriaAtual = 'operacional'; renderizarTela(); });
+  qs('#menu-sair').addEventListener('click', fazerLogout);
 }
 
-function renderizarPagina(pagina) {
+function renderSubmenu() {
+  const box = qs('#tela-submenu');
+  const opcoes = STATE.categoriaAtual === 'gerencial' ? MENU_GERENCIAL : MENU_OPERACIONAL;
+  const titulo = STATE.categoriaAtual === 'gerencial' ? 'Gerencial' : 'Operacional';
+
+  let html = `
+    <div class="login-header">
+      <div class="login-brand">${titulo}</div>
+      <div class="login-brand-bar"></div>
+    </div>
+    <div class="menu-box">
+  `;
+  for (const o of opcoes) {
+    html += `<button class="btn btn-menu" data-pagina="${o.chave}">${escapeHtml(o.label)}</button>`;
+  }
+  html += `
+      <button class="btn btn-block" id="submenu-voltar" style="margin-top:18px;">Voltar</button>
+      <button class="btn btn-block" id="submenu-sair">Sair</button>
+    </div>
+  `;
+  box.innerHTML = html;
+
+  qsa('[data-pagina]', box).forEach(btn => btn.addEventListener('click', () => {
+    STATE.paginaAtual = btn.dataset.pagina;
+    renderizarTela();
+  }));
+  qs('#submenu-voltar').addEventListener('click', () => { STATE.categoriaAtual = null; renderizarTela(); });
+  qs('#submenu-sair').addEventListener('click', fazerLogout);
+}
+
+// Botões Voltar/Sair no topo de cada página (equivalente a barra_navegacao_superior)
+function barraNavegacaoSuperior() {
+  return `
+    <div class="top-nav">
+      <button class="btn btn-sm" id="pg-voltar">Voltar</button>
+      <button class="btn btn-sm" id="pg-sair">Sair</button>
+    </div>
+  `;
+}
+function ligarBarraNavegacaoSuperior() {
+  qs('#pg-voltar').addEventListener('click', () => { STATE.paginaAtual = null; renderizarTela(); });
+  qs('#pg-sair').addEventListener('click', fazerLogout);
+}
+
+async function atualizarDados() {
+  STATE.dados = await carregarDados();
+}
+
+function renderPagina() {
+  const pagina = STATE.paginaAtual;
   try {
-    if (pagina === 'Dashboard') renderDashboard();
-    else if (pagina === 'Planejamento') renderPlanejamento();
-    else if (pagina === 'Analise') renderAnalise();
-    else if (pagina === 'Lancamentos') renderLancamentos();
-    else if (pagina === 'Historico') renderHistorico();
-    else if (pagina === 'Conta') renderConta();
-    else if (pagina === 'Usuarios') renderUsuarios();
+    if (pagina === 'dashboard') renderDashboard();
+    else if (pagina === 'viagens') renderViagens();
+    else if (pagina === 'combustivel') renderCombustivel();
+    else if (pagina === 'motoristas') renderMotoristas();
+    else if (pagina === 'frota') renderFrota();
+    else if (pagina === 'usuarios') renderUsuarios();
+    else if (pagina === 'manutencao') renderManutencao();
   } catch (e) {
     console.error(`Erro ao renderizar página ${pagina}:`, e);
-    const alvo = qs('#page-' + pagina);
-    if (alvo) alvo.innerHTML = `<div class="alerta alerta-error">❌ Ocorreu um erro ao carregar esta aba: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-function atualizarFooter() {
-  const footer = qs('#app-footer');
-  if (footer) {
-    footer.innerHTML = `FinançasPro · Usuário: <b>${escapeHtml(STATE.username)}</b> · ${STATE.lancamentos.length} lançamentos`;
-  }
-}
-
-function limparLixeiraAntiga() {
-  if (!STATE.lixeira.length) return [];
-  const hoje = agoraBr();
-  const manter = [];
-  const remover = [];
-  for (const l of STATE.lixeira) {
-    const apagadoEm = new Date(l.apagadoEm || hoje.toISOString());
-    const dias = Math.floor((hoje - apagadoEm) / (1000 * 60 * 60 * 24));
-    if (dias <= 30) manter.push(l); else remover.push(l);
-  }
-  STATE.lixeira = manter;
-  return remover;
-}
-
-async function iniciarApp() {
-  qs('#tela-login').style.display = 'none';
-  qs('#app').style.display = 'block';
-  qs('#top-user').innerHTML = `👤 <b>${escapeHtml(STATE.username)}</b>${STATE.isAdmin ? '  👑' : ''}`;
-  qs('#tab-btn-usuarios').style.display = STATE.isAdmin ? 'inline-block' : 'none';
-  aplicarTema();
-  irParaPagina('Dashboard');
-  atualizarFooter();
-
-  // Limpeza de itens da lixeira com mais de 30 dias (silenciosa, em segundo plano)
-  const expirados = limparLixeiraAntiga();
-  if (expirados.length) {
-    for (const l of expirados) {
-      try { await excluirDefinitivo(STATE.username, l.id); } catch (e) { console.warn('Falha ao expirar item da lixeira', e); }
-    }
+    qs('#app').innerHTML = barraNavegacaoSuperior() + `<div class="alerta alerta-error">Ocorreu um erro ao carregar esta página: ${escapeHtml(e.message)}</div>`;
+    ligarBarraNavegacaoSuperior();
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  qsa('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => irParaPagina(btn.dataset.page));
-  });
   configurarAuth();
-  aplicarTema();
+  renderizarTela();
 });

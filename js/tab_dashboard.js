@@ -1,279 +1,179 @@
 // ─────────────────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────
-function renderDashboard() {
-  const container = qs('#page-Dashboard');
-  const lancamentos = STATE.lancamentos;
-
-  let dataMinDados = hojeBr();
-  dataMinDados.setDate(1);
-  if (lancamentos.length) {
-    const datas = lancamentos.map(l => parseISO(l.data));
-    dataMinDados = new Date(Math.min(...datas.map(d => d.getTime())));
+function somarPorChave(lista, chaveFn, valorFn) {
+  const mapa = {};
+  for (const item of lista) {
+    const chave = chaveFn(item);
+    mapa[chave] = (mapa[chave] || 0) + valorFn(item);
   }
-  if (!STATE.filtroInicio) STATE.filtroInicio = dataMinDados;
-  if (!STATE.filtroFim) STATE.filtroFim = hojeBr();
+  return mapa;
+}
+function somarDuasChaves(mapaA, mapaB) {
+  const resultado = { ...mapaA };
+  for (const [k, v] of Object.entries(mapaB)) resultado[k] = (resultado[k] || 0) + v;
+  return resultado;
+}
 
-  container.innerHTML = `
-    <div class="page-title">Visão <span>Geral</span></div>
-    <div class="page-sub">Atualizado em ${agoraBr().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
-    <div class="divider"></div>
+function renderDashboard() {
+  const box = qs('#app');
+  const viagens = viagensParaLista(STATE.dados);
 
-    <div class="section-title">🗓️ Filtrar Período de Análise</div>
-    <div class="form-row cols-3">
-      <div class="field"><label>📅 Data inicial</label><input type="date" id="db-data-inicio" value="${dataISO(STATE.filtroInicio)}"></div>
-      <div class="field"><label>📅 Data final</label><input type="date" id="db-data-fim" value="${dataISO(STATE.filtroFim)}"></div>
-      <div class="field">
-        <label>Atalhos rápidos</label>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-sm" id="db-at-mes">Este mês</button>
-          <button class="btn btn-sm" id="db-at-3m">Últ. 3 meses</button>
-          <button class="btn btn-sm" id="db-at-ano">Este ano</button>
-        </div>
-      </div>
+  if (!viagens.length) {
+    box.innerHTML = barraNavegacaoSuperior() + `<div class="alerta alerta-info">Nenhuma viagem lançada ainda. Lance a primeira em <b>Viagens</b>.</div>`;
+    ligarBarraNavegacaoSuperior();
+    return;
+  }
+
+  const abastecimentos = abastecimentosParaLista(STATE.dados);
+  const datas = viagens.map(v => parseISO(v.data));
+  const dataMin = new Date(Math.min(...datas.map(d => d.getTime())));
+  const dataMax = new Date(Math.max(...datas.map(d => d.getTime())));
+
+  const placas = [...new Set(viagens.map(v => v.veiculo))].sort();
+  const motoristasNomes = [...new Set(viagens.map(v => v.motorista))].sort();
+
+  box.innerHTML = `
+    ${barraNavegacaoSuperior()}
+    <div class="page-title">Dashboard</div>
+    <div class="section-title">Filtros</div>
+    <div class="form-row cols-4">
+      <div class="field"><label>Data inicial</label><input type="date" id="dash-data-ini" value="${dataISO(dataMin)}"></div>
+      <div class="field"><label>Data final</label><input type="date" id="dash-data-fim" value="${dataISO(dataMax)}"></div>
+      <div class="field"><label>Caminhão</label><select id="dash-veiculo"><option value="Todos">Todos</option>${placas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}</select></div>
+      <div class="field"><label>Motorista</label><select id="dash-motorista"><option value="Todos">Todos</option>${motoristasNomes.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('')}</select></div>
     </div>
-    <div id="db-aviso-data"></div>
-    <div id="db-conteudo"></div>
+    <div id="dash-conteudo"></div>
   `;
+  ligarBarraNavegacaoSuperior();
 
-  qs('#db-data-inicio').addEventListener('change', e => { STATE.filtroInicio = parseISO(e.target.value); renderDashboardConteudo(); });
-  qs('#db-data-fim').addEventListener('change', e => { STATE.filtroFim = parseISO(e.target.value); renderDashboardConteudo(); });
-  qs('#db-at-mes').addEventListener('click', () => {
-    const h = hojeBr(); STATE.filtroInicio = new Date(h.getFullYear(), h.getMonth(), 1); STATE.filtroFim = hojeBr();
-    qs('#db-data-inicio').value = dataISO(STATE.filtroInicio); qs('#db-data-fim').value = dataISO(STATE.filtroFim);
-    renderDashboardConteudo();
-  });
-  qs('#db-at-3m').addEventListener('click', () => {
-    const h = hojeBr(); STATE.filtroInicio = new Date(h.getTime() - 90 * 86400000); STATE.filtroFim = hojeBr();
-    qs('#db-data-inicio').value = dataISO(STATE.filtroInicio); qs('#db-data-fim').value = dataISO(STATE.filtroFim);
-    renderDashboardConteudo();
-  });
-  qs('#db-at-ano').addEventListener('click', () => {
-    const h = hojeBr(); STATE.filtroInicio = new Date(h.getFullYear(), 0, 1); STATE.filtroFim = hojeBr();
-    qs('#db-data-inicio').value = dataISO(STATE.filtroInicio); qs('#db-data-fim').value = dataISO(STATE.filtroFim);
-    renderDashboardConteudo();
+  ['dash-data-ini','dash-data-fim','dash-veiculo','dash-motorista'].forEach(id => {
+    qs('#' + id).addEventListener('change', renderDashboardConteudo);
   });
 
   renderDashboardConteudo();
 }
 
-let DB_TOP_N = 5;
-
 function renderDashboardConteudo() {
-  const avisoBox = qs('#db-aviso-data');
-  const box = qs('#db-conteudo');
-  const lancamentos = STATE.lancamentos;
+  const conteudo = qs('#dash-conteudo');
+  const dataIni = parseISO(qs('#dash-data-ini').value);
+  const dataFim = parseISO(qs('#dash-data-fim').value);
+  const veiculoSel = qs('#dash-veiculo').value;
+  const motoristaSel = qs('#dash-motorista').value;
 
-  if (STATE.filtroInicio > STATE.filtroFim) {
-    avisoBox.innerHTML = `<div class="alerta alerta-warning">⚠️ A data inicial não pode ser maior que a data final.</div>`;
-    box.innerHTML = '';
-    return;
-  }
-  avisoBox.innerHTML = '';
+  let viagens = viagensParaLista(STATE.dados).filter(v => {
+    const d = parseISO(v.data);
+    return d >= dataIni && d <= dataFim;
+  });
+  if (veiculoSel !== 'Todos') viagens = viagens.filter(v => v.veiculo === veiculoSel);
+  if (motoristaSel !== 'Todos') viagens = viagens.filter(v => v.motorista === motoristaSel);
 
-  const noPeriodo = l => { const d = parseISO(l.data); return d >= STATE.filtroInicio && d <= STATE.filtroFim; };
-  const lancFiltrados = lancamentos.filter(noPeriodo);
-  const receitas = lancFiltrados.filter(l => l.tipo === 'Receita');
-  const despesas = lancFiltrados.filter(l => l.tipo !== 'Receita');
-  const fixos = despesas.filter(l => l.tipo === 'Fixo');
-  const variaveis = despesas.filter(l => l.tipo === 'Variável');
+  let abastecimentos = abastecimentosParaLista(STATE.dados).filter(a => {
+    const d = parseISO(a.data);
+    return d >= dataIni && d <= dataFim;
+  });
+  if (veiculoSel !== 'Todos') abastecimentos = abastecimentos.filter(a => a.veiculo === veiculoSel);
+  if (motoristaSel !== 'Todos') abastecimentos = abastecimentos.filter(a => a.motorista === motoristaSel);
 
-  const totalR = receitas.reduce((s, l) => s + l.valor, 0);
-  const totalD = despesas.reduce((s, l) => s + l.valor, 0);
-  const saldo = totalR - totalD;
+  const receitaTotal = viagens.reduce((s, v) => s + v.faturamento, 0);
+  const despesaViagens = viagens.reduce((s, v) => s + v.pedagio + v.outros_custos, 0);
+  const despesaCombustivel = abastecimentos.reduce((s, a) => s + a.valor_pago, 0);
+  const despesaTotal = despesaViagens + despesaCombustivel;
+  const lucroTotal = receitaTotal - despesaTotal;
 
-  const periodoLabel = `${dataISO(STATE.filtroInicio).split('-').reverse().join('/')} → ${dataISO(STATE.filtroFim).split('-').reverse().join('/')}`;
+  let html = `<div class="kpi-row" style="margin-top:14px;">
+    <div class="kpi verde"><div class="kpi-label">Receita Total</div><div class="kpi-value pos">${fmtBRL(receitaTotal)}</div></div>
+    <div class="kpi vermelho"><div class="kpi-label">Despesa Total</div><div class="kpi-value neg">${fmtBRL(despesaTotal)}</div></div>
+    <div class="kpi amarelo"><div class="kpi-label">Lucro (Receita - Despesa)</div><div class="kpi-value ${lucroTotal >= 0 ? 'pos' : 'neg'}">${fmtBRL(lucroTotal)}</div></div>
+    <div class="kpi roxo"><div class="kpi-label">Viagens Lançadas</div><div class="kpi-value neu">${viagens.length}</div></div>
+  </div>`;
 
-  let html = `<div style="font-size:0.75rem;color:var(--text-sub);margin:6px 0 14px;">📌 Período: <b>${periodoLabel}</b> · ${lancFiltrados.length} lançamentos encontrados</div>`;
-
-  const saldoCls = saldo >= 0 ? 'pos' : 'neg';
-  const saldoBor = saldo >= 0 ? 'verde' : 'vermelho';
-  html += `<div class="kpi-row">
-    <div class="kpi verde"><div class="kpi-label">Receitas</div><div class="kpi-value pos">${fmtBRL(totalR)}</div><div class="kpi-sub">${receitas.length} lançamentos</div></div>
-    <div class="kpi vermelho"><div class="kpi-label">Despesas</div><div class="kpi-value neg">${fmtBRL(totalD)}</div><div class="kpi-sub">${despesas.length} lançamentos</div></div>
-    <div class="kpi ${saldoBor}"><div class="kpi-label">Saldo</div><div class="kpi-value ${saldoCls}">${fmtBRL(saldo)}</div><div class="kpi-sub">Receitas – Despesas</div></div>
-  </div><div class="divider"></div>`;
-
-  // Evolução mensal (ano atual)
-  const anoAtual = hojeBr().getFullYear();
-  const lancAnoAtual = lancamentos.filter(l => parseISO(l.data).getFullYear() === anoAtual);
-  const temEvolucao = lancAnoAtual.length > 0;
-  if (temEvolucao) {
-    html += `<div class="section-title">Evolução Mensal — ${anoAtual}</div>
-      <div class="chart-box"><canvas id="chart-evolucao"></canvas></div><div class="divider"></div>`;
-  }
-
-  // Pareto por classe
-  const classeMap = {};
-  for (const l of despesas) classeMap[l.classe] = (classeMap[l.classe] || 0) + l.valor;
-  const temPareto = despesas.length > 0;
-  if (temPareto) {
-    html += `<div class="section-title">Análise de Pareto — Despesas por Categoria</div>
-      <div class="caption">As barras mostram o valor absoluto por categoria; a linha amarela indica o percentual acumulado.</div>
-      <div class="chart-box"><canvas id="chart-pareto"></canvas></div>`;
-  }
-
-  // Top despesas por descrição
-  if (despesas.length) {
-    html += `<div class="section-title">Top Itens de Despesa</div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-        <select id="db-top-n" class="field" style="width:120px;padding:6px 8px;border-radius:8px;border:1.5px solid var(--border);">
-          <option value="5">Top 5</option><option value="10">Top 10</option><option value="15">Top 15</option><option value="20">Top 20</option>
-        </select>
-      </div>
-      <div class="chart-box"><canvas id="chart-top-despesas"></canvas></div><div class="divider"></div>`;
-  }
-
-  // Donuts
-  if (despesas.length || receitas.length) {
-    html += `<div class="two-col">
-      <div><div class="section-title">Composição das Despesas</div><div class="chart-box"><canvas id="chart-donut-fv"></canvas></div></div>
-      <div><div class="section-title">Receita vs Despesa</div><div class="chart-box"><canvas id="chart-donut-rd"></canvas></div></div>
+  html += `<div class="divider"></div><div class="section-title">Receita, Despesa e Lucro por Caminhão e por Motorista</div>
+    <div class="two-col">
+      <div><div class="caption">Por Caminhão</div><div class="chart-box"><canvas id="chart-rdl-veiculo"></canvas></div></div>
+      <div><div class="caption">Por Motorista</div><div class="chart-box"><canvas id="chart-rdl-motorista"></canvas></div></div>
     </div>`;
-  }
 
-  // Dia da semana
-  if (despesas.length) {
-    html += `<div class="divider"></div><div class="section-title">Padrão de Gastos — Dia da Semana</div>
-      <div class="chart-box"><canvas id="chart-semana"></canvas></div>`;
-  }
+  html += `<div class="divider"></div><div class="section-title">Receita, Despesa e Lucro por Mês</div>
+    <div class="chart-box"><canvas id="chart-rdl-mes"></canvas></div>`;
 
-  // Saldo acumulado
-  if (lancFiltrados.length) {
-    html += `<div class="section-title">Saúde Financeira — Saldo Acumulado</div>
-      <div class="chart-box"><canvas id="chart-acumulado"></canvas></div>`;
-  }
+  html += `<div class="divider"></div><div class="section-title">Quantidade de Viagens Lançadas</div>
+    <div class="two-col">
+      <div><div class="caption">Por Mês</div><div class="chart-box"><canvas id="chart-qtd-mes"></canvas></div></div>
+      <div><div class="caption">Por Caminhão</div><div class="chart-box"><canvas id="chart-qtd-veiculo"></canvas></div></div>
+    </div>`;
 
-  // Gastos por categoria (cards)
-  const catsOrdenadas = Object.entries(classeMap).sort((a, b) => b[1] - a[1]);
-  if (despesas.length) {
-    const maxVal = catsOrdenadas.length ? catsOrdenadas[0][1] : 1;
-    const icons = { "Alimentação":"🍽️","Transporte":"🚗","Moradia":"🏠","Saúde":"💊","Lazer":"🎉","Educação":"📚","Serviços":"📡","Vestuário":"👗","Outros":"📌" };
-    html += `<div class="divider"></div><div class="section-title">Gastos por Categoria</div><div class="cat-grid">`;
-    for (const [cls, val] of catsOrdenadas) {
-      const pct = Math.round((val / maxVal) * 100);
-      html += `<div class="cat-card">
-        <div class="icone">${icons[cls] || '📌'}</div>
-        <div class="nome">${escapeHtml(cls)}</div>
-        <div class="valor">${fmtBRL(val)}</div>
-        <div class="barra-fundo thin"><div class="barra-cheia thin" style="width:${pct}%;background:#00704A;"></div></div>
-      </div>`;
-    }
-    html += `</div>`;
-  }
+  html += `<div class="divider"></div><div class="section-title">Custo por KM Rodado (por Caminhão)</div>
+    <div id="dash-custo-km"></div>`;
 
-  // Categoria extra
-  const despesasComCatExtra = despesas.filter(l => l.categoria_extra);
-  if (despesasComCatExtra.length) {
-    html += `<div class="divider"></div><div class="section-title">🏷️ Gastos por Categoria</div>
-      <div class="caption">Segmentação extra informada nos lançamentos (ex: Moto, Carro, Casa).</div>
-      <div class="chart-box"><canvas id="chart-cat-extra"></canvas></div>`;
-  }
+  html += `<div class="divider"></div><div class="section-title">Últimas viagens lançadas</div>
+    <div id="dash-ultimas"></div>`;
 
-  // Últimos lançamentos
-  html += `<div class="divider"></div><div class="section-title">Últimos Lançamentos no Período</div>`;
-  if (!lancFiltrados.length) {
-    html += `<div class="alerta alerta-info">Nenhum lançamento no período selecionado.</div>`;
+  conteudo.innerHTML = html;
+
+  // Receita/Despesa/Lucro por Caminhão
+  const receitaVeiculo = somarPorChave(viagens, v => v.veiculo, v => v.faturamento);
+  const despesaVeiculoViagem = somarPorChave(viagens, v => v.veiculo, v => v.pedagio + v.outros_custos);
+  const despesaVeiculoComb = somarPorChave(abastecimentos, a => a.veiculo, a => a.valor_pago);
+  const despesaVeiculo = somarDuasChaves(despesaVeiculoViagem, despesaVeiculoComb);
+  const catsVeiculo = [...new Set([...Object.keys(receitaVeiculo), ...Object.keys(despesaVeiculo)])].sort();
+  graficoRdlEmpilhado('chart-rdl-veiculo', catsVeiculo, catsVeiculo.map(c => receitaVeiculo[c] || 0), catsVeiculo.map(c => despesaVeiculo[c] || 0));
+
+  // Receita/Despesa/Lucro por Motorista
+  const receitaMotorista = somarPorChave(viagens, v => v.motorista, v => v.faturamento);
+  const despesaMotoristaViagem = somarPorChave(viagens, v => v.motorista, v => v.pedagio + v.outros_custos);
+  const despesaMotoristaComb = somarPorChave(abastecimentos, a => a.motorista, a => a.valor_pago);
+  const despesaMotorista = somarDuasChaves(despesaMotoristaViagem, despesaMotoristaComb);
+  const catsMotorista = [...new Set([...Object.keys(receitaMotorista), ...Object.keys(despesaMotorista)])].sort();
+  graficoRdlEmpilhado('chart-rdl-motorista', catsMotorista, catsMotorista.map(c => receitaMotorista[c] || 0), catsMotorista.map(c => despesaMotorista[c] || 0));
+
+  // Receita/Despesa/Lucro por Mês
+  const mesAnoFn = iso => { const d = parseISO(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  const receitaMes = somarPorChave(viagens, v => mesAnoFn(v.data), v => v.faturamento);
+  const despesaMesViagem = somarPorChave(viagens, v => mesAnoFn(v.data), v => v.pedagio + v.outros_custos);
+  const despesaMesComb = somarPorChave(abastecimentos, a => mesAnoFn(a.data), a => a.valor_pago);
+  const despesaMes = somarDuasChaves(despesaMesViagem, despesaMesComb);
+  const catsMes = [...new Set([...Object.keys(receitaMes), ...Object.keys(despesaMes)])].sort();
+  graficoRdlEmpilhado('chart-rdl-mes', catsMes, catsMes.map(c => receitaMes[c] || 0), catsMes.map(c => despesaMes[c] || 0));
+
+  // Quantidade por Mês / por Caminhão
+  const qtdMes = somarPorChave(viagens, v => mesAnoFn(v.data), () => 1);
+  const catsQtdMes = Object.keys(qtdMes).sort();
+  graficoQuantidade('chart-qtd-mes', catsQtdMes, catsQtdMes.map(c => qtdMes[c]));
+
+  const qtdVeiculo = somarPorChave(viagens, v => v.veiculo, () => 1);
+  const catsQtdVeiculo = Object.keys(qtdVeiculo).sort();
+  graficoQuantidade('chart-qtd-veiculo', catsQtdVeiculo, catsQtdVeiculo.map(c => qtdVeiculo[c]));
+
+  // Custo por KM rodado
+  const kmVeiculo = somarPorChave(abastecimentos.filter(a => a.km_rodado != null && a.km_rodado > 0), a => a.veiculo, a => a.km_rodado);
+  const linhasCustoKm = [];
+  for (const veic of Object.keys(despesaVeiculo)) {
+    const kmTotal = kmVeiculo[veic] || 0;
+    if (kmTotal > 0) linhasCustoKm.push({ veiculo: veic, custo_por_km: despesaVeiculo[veic] / kmTotal });
+  }
+  const boxCustoKm = qs('#dash-custo-km');
+  if (linhasCustoKm.length) {
+    linhasCustoKm.sort((a, b) => b.custo_por_km - a.custo_por_km);
+    boxCustoKm.innerHTML = `<div class="chart-box"><canvas id="chart-custo-km"></canvas></div>`;
+    graficoCustoKm('chart-custo-km', linhasCustoKm.map(l => l.veiculo), linhasCustoKm.map(l => l.custo_por_km));
   } else {
-    const ultimos = lancFiltrados.slice(0, 10);
-    html += `<table class="tabela-simples"><thead><tr><th>Data</th><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Pagamento</th><th>Valor</th></tr></thead><tbody>`;
-    for (const l of ultimos) {
-      const sinal = l.tipo === 'Receita' ? '+' : '-';
-      const cor = l.tipo === 'Receita' ? 'pos' : 'neg';
-      html += `<tr>
-        <td>${fmtDataBR(l.data)}</td>
-        <td>${l.icone} ${escapeHtml(l.descricao)}</td>
-        <td>${badgeTipo(l.tipo)}</td>
-        <td>${l.categoria_extra ? escapeHtml(l.categoria_extra) : '—'}</td>
-        <td>${badgePagamento(l.forma_pagamento)}</td>
-        <td class="lanc-valor ${cor}">${sinal} ${fmtBRL(l.valor)}</td>
-      </tr>`;
-    }
-    html += `</tbody></table>`;
+    boxCustoKm.innerHTML = `<div class="alerta alerta-info">Sem quilometragem suficiente registrada (é necessário ao menos 2 abastecimentos por caminhão dentro do filtro selecionado) para calcular o custo por KM.</div>`;
   }
 
-  box.innerHTML = html;
-
-  // ── Renderiza os gráficos após o HTML estar no DOM ──
-  if (temEvolucao) {
-    const df = lancAnoAtual;
-    const mesesMap = {};
-    for (const l of df) {
-      const d = parseISO(l.data);
-      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!mesesMap[chave]) mesesMap[chave] = { receita: 0, despesa: 0 };
-      if (l.tipo === 'Receita') mesesMap[chave].receita += l.valor; else mesesMap[chave].despesa += l.valor;
-    }
-    const chaves = Object.keys(mesesMap).sort();
-    const nomesMeses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-    const labels = chaves.map(c => { const [a, m] = c.split('-'); return `${nomesMeses[parseInt(m) - 1]}/${a.slice(2)}`; });
-    const recV = chaves.map(c => mesesMap[c].receita);
-    const despV = chaves.map(c => mesesMap[c].despesa);
-    const saldV = recV.map((r, i) => r - despV[i]);
-    graficoEvolucaoMensal('chart-evolucao', labels, recV, despV, saldV);
+  // Últimas viagens
+  const todasViagens = viagensParaLista(STATE.dados);
+  const ultimas = [...todasViagens].sort((a, b) => parseISO(b.data) - parseISO(a.data)).slice(0, 6);
+  const boxUltimas = qs('#dash-ultimas');
+  if (!ultimas.length) {
+    boxUltimas.innerHTML = `<div class="alerta alerta-info">Nenhuma viagem lançada.</div>`;
+  } else {
+    boxUltimas.innerHTML = `<table class="tabela-simples"><thead><tr>
+      <th>Data</th><th>Cavalo</th><th>Motorista</th><th>Origem</th><th>Destino</th><th>Faturamento</th><th>Status</th>
+    </tr></thead><tbody>${ultimas.map(v => `<tr>
+      <td>${fmtDataBR(v.data)}</td><td>${escapeHtml(v.veiculo)}</td><td>${escapeHtml(v.motorista)}</td>
+      <td>${escapeHtml(v.origem)}</td><td>${escapeHtml(v.destino)}</td>
+      <td class="lanc-valor pos">${fmtBRL(v.faturamento)}</td><td>${badgeStatus(v.status)}</td>
+    </tr>`).join('')}</tbody></table>`;
   }
-
-  if (temPareto) {
-    const total = Object.values(classeMap).reduce((a, b) => a + b, 0) || 1;
-    let acumulado = 0;
-    const cats = catsOrdenadas.map(c => c[0]);
-    const vals = catsOrdenadas.map(c => c[1]);
-    const acumPct = vals.map(v => { acumulado += (v / total) * 100; return Math.round(acumulado * 100) / 100; });
-    graficoPareto('chart-pareto', cats, vals, acumPct);
-  }
-
-  if (despesas.length) {
-    const selectTop = qs('#db-top-n');
-    selectTop.value = String(DB_TOP_N);
-    selectTop.addEventListener('change', e => { DB_TOP_N = parseInt(e.target.value); renderTopDespesasChart(despesas); });
-    renderTopDespesasChart(despesas);
-  }
-
-  if (despesas.length || receitas.length) {
-    const totalF = fixos.reduce((s, l) => s + l.valor, 0);
-    const totalV = variaveis.reduce((s, l) => s + l.valor, 0);
-    if (totalF + totalV > 0) graficoDonut('chart-donut-fv', ['Fixos', 'Variáveis'], [totalF, totalV], ['#00704A', '#f39c12']);
-    if (totalR + totalD > 0) graficoDonut('chart-donut-rd', ['Receitas', 'Despesas'], [totalR, totalD], ['#05C47A', '#c0392b']);
-  }
-
-  if (despesas.length) {
-    const diasNomes = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
-    const valsSemana = [0, 0, 0, 0, 0, 0, 0];
-    for (const l of despesas) {
-      const d = parseISO(l.data);
-      const diaJs = d.getDay(); // 0=dom..6=sab
-      const idx = (diaJs + 6) % 7; // 0=seg..6=dom
-      valsSemana[idx] += l.valor;
-    }
-    graficoBarraVertical('chart-semana', diasNomes, valsSemana, '#00704A');
-  }
-
-  if (lancFiltrados.length) {
-    const ordenado = [...lancFiltrados].sort((a, b) => parseISO(a.data) - parseISO(b.data));
-    const porDia = {};
-    let acumulado = 0;
-    for (const l of ordenado) {
-      acumulado += l.tipo === 'Receita' ? l.valor : -l.valor;
-      porDia[l.data] = acumulado;
-    }
-    const diasOrdenados = Object.keys(porDia).sort();
-    graficoLinhaArea('chart-acumulado', diasOrdenados.map(fmtDataBR), diasOrdenados.map(d => porDia[d]), porDia[diasOrdenados[diasOrdenados.length - 1]] >= 0);
-  }
-
-  if (despesasComCatExtra.length) {
-    const catExtraMap = {};
-    for (const l of despesasComCatExtra) catExtraMap[l.categoria_extra] = (catExtraMap[l.categoria_extra] || 0) + l.valor;
-    const ordenado = Object.entries(catExtraMap).sort((a, b) => b[1] - a[1]);
-    graficoBarraVertical('chart-cat-extra', ordenado.map(o => o[0]), ordenado.map(o => o[1]), '#00704A');
-  }
-}
-
-function renderTopDespesasChart(despesas) {
-  const descMap = {};
-  for (const l of despesas) {
-    const chave = `${l.icone} ${l.descricao}`;
-    descMap[chave] = (descMap[chave] || 0) + l.valor;
-  }
-  const ordenado = Object.entries(descMap).sort((a, b) => b[1] - a[1]).slice(0, DB_TOP_N);
-  graficoBarraHorizontal('chart-top-despesas', ordenado.map(o => o[0]).reverse(), ordenado.map(o => o[1]).reverse(), 'vermelho');
 }

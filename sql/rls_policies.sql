@@ -1,52 +1,31 @@
 -- ─────────────────────────────────────────────────────────────────────────
--- POLÍTICAS DE ACESSO (RLS) PARA O FRONTEND HTML/CSS/JS
+-- POLÍTICAS DE ACESSO (RLS) PARA O SITE HTML/CSS/JS
 -- ─────────────────────────────────────────────────────────────────────────
--- O site novo fala DIRETO com o Supabase pelo navegador, usando a chave
--- "anon" (pública). Isso só é seguro se o RLS (Row Level Security) estiver
--- ATIVO em todas as tabelas — sem isso, qualquer pessoa que veja o código
--- do site (ex: no GitHub) consegue ler e apagar tudo do banco livremente.
+-- Libera leitura/escrita nas tabelas JÁ EXISTENTES (usadas hoje pelo
+-- Streamlit) para quem usa a anon key. O login continua sendo o mesmo
+-- (usuario/senha_hash na tabela "usuarios") — não usa Supabase Auth.
 --
--- Este app NÃO usa o sistema de autenticação do Supabase (Supabase Auth) —
--- ele usa login próprio (usuário/senha na tabela Orç_Usuarios, como já era
--- no Streamlit). Por isso, as políticas abaixo são "abertas" para quem tem
--- a anon key (equivalente ao nível de proteção que o app já tinha: só quem
--- conhece o site e faz login consegue usar). Isso é razoável para um app
--- pessoal/familiar com poucos usuários de confiança — mas é IMPORTANTE
--- entender que a anon key + essas políticas permitem, na prática, leitura
--- e escrita por qualquer pessoa que descubra a URL do Supabase (mesmo sem
--- login no site), então não divulgue a URL do Supabase publicamente além
--- do necessário e evite deixar o repositório do site com dados sensíveis
--- de exemplo.
---
--- Rode este script inteiro no Supabase em: SQL Editor (ícone ">_" no menu
--- lateral, abaixo de "Table Editor") → New query → cole tudo → Run.
+-- Rode este script inteiro no Supabase em: SQL Editor → New query → Run.
+-- Não apaga nem altera nenhum dado existente.
 -- ─────────────────────────────────────────────────────────────────────────
 
-ALTER TABLE "Orç_Usuarios" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Lancamentos" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Lixeira" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Categorias" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Planejamento" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Planejamento_Eventos" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Planejamento_Fixos" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "Orç_Planejamento_Limites" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE motoristas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE veiculos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE carretas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE viagens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE abastecimentos ENABLE ROW LEVEL SECURITY;
 
--- Remove políticas antigas (permite rodar o script de novo sem erro)
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Usuarios";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Lancamentos";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Lixeira";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Categorias";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Planejamento";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Planejamento_Eventos";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Planejamento_Fixos";
-DROP POLICY IF EXISTS "acesso_total_anon" ON "Orç_Planejamento_Limites";
+DROP POLICY IF EXISTS "acesso_total_anon" ON usuarios;
+DROP POLICY IF EXISTS "acesso_total_anon" ON motoristas;
+DROP POLICY IF EXISTS "acesso_total_anon" ON veiculos;
+DROP POLICY IF EXISTS "acesso_total_anon" ON carretas;
+DROP POLICY IF EXISTS "acesso_total_anon" ON viagens;
+DROP POLICY IF EXISTS "acesso_total_anon" ON abastecimentos;
 
--- Libera leitura e escrita para quem usa a anon key (roles anon e authenticated)
-CREATE POLICY "acesso_total_anon" ON "Orç_Usuarios" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Lancamentos" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Lixeira" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Categorias" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Planejamento" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Planejamento_Eventos" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Planejamento_Fixos" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "acesso_total_anon" ON "Orç_Planejamento_Limites" FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON usuarios FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON motoristas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON veiculos FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON carretas FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON viagens FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total_anon" ON abastecimentos FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
