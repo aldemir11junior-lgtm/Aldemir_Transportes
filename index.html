@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinançasPro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     TELA DE LOGIN
+     ══════════════════════════════════════════════════════════════ -->
+<div id="tela-login">
+  <div class="login-header">
+    <div class="login-brand">Finanças<span>Pro</span></div>
+    <div class="login-brand-sub">Controle financeiro pessoal</div>
+    <div class="login-brand-bar"></div>
+  </div>
+
+  <div class="login-box">
+    <div class="login-abas">
+      <button class="login-aba-btn active" data-aba="entrar">Entrar</button>
+      <button class="login-aba-btn" data-aba="criar">Criar conta</button>
+    </div>
+
+    <div id="aba-entrar" class="login-aba-conteudo">
+      <div id="msg-login" class="msg-area"></div>
+      <label class="campo-label">👤 Usuário</label>
+      <input type="text" id="li-usuario" class="campo-input" autocomplete="username">
+      <label class="campo-label">🔒 Senha</label>
+      <input type="password" id="li-senha" class="campo-input" autocomplete="current-password">
+      <button id="btn-entrar" class="btn btn-primary btn-block">✦ Entrar</button>
+    </div>
+
+    <div id="aba-criar" class="login-aba-conteudo" style="display:none">
+      <div id="msg-registro" class="msg-area"></div>
+      <label class="campo-label">👤 Novo usuário</label>
+      <input type="text" id="reg-usuario" class="campo-input">
+      <label class="campo-label">🔒 Senha</label>
+      <input type="password" id="reg-senha1" class="campo-input">
+      <label class="campo-label">🔒 Confirmar senha</label>
+      <input type="password" id="reg-senha2" class="campo-input">
+      <button id="btn-criar-conta" class="btn btn-primary btn-block">✦ Criar conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     APP (pós-login)
+     ══════════════════════════════════════════════════════════════ -->
+<div id="app" style="display:none">
+
+  <div class="top-bar">
+    <div class="top-brand">Finanças<span>Pro</span></div>
+    <div class="top-right">
+      <span id="top-user" class="top-user"></span>
+      <button id="btn-tema" class="btn btn-top">🌙 Escuro</button>
+      <button id="btn-sair" class="btn btn-top">🚪 Sair</button>
+    </div>
+  </div>
+
+  <nav class="tabs-nav" id="tabs-nav">
+    <button class="tab-btn active" data-page="Dashboard">📊 Dashboard</button>
+    <button class="tab-btn" data-page="Planejamento">🗓️ Planejamento</button>
+    <button class="tab-btn" data-page="Analise">🔎 Análise e Insights</button>
+    <button class="tab-btn" data-page="Lancamentos">➕ Lançamentos</button>
+    <button class="tab-btn" data-page="Historico">📋 Histórico</button>
+    <button class="tab-btn" data-page="Conta">⚙️ Conta</button>
+    <button class="tab-btn" data-page="Usuarios" id="tab-btn-usuarios" style="display:none">👥 Usuários</button>
+  </nav>
+
+  <main class="block-container">
+    <section id="page-Dashboard" class="page"></section>
+    <section id="page-Planejamento" class="page" style="display:none"></section>
+    <section id="page-Analise" class="page" style="display:none"></section>
+    <section id="page-Lancamentos" class="page" style="display:none"></section>
+    <section id="page-Historico" class="page" style="display:none"></section>
+    <section id="page-Conta" class="page" style="display:none"></section>
+    <section id="page-Usuarios" class="page" style="display:none"></section>
+  </main>
+
+  <footer id="app-footer" class="app-footer"></footer>
+</div>
+
+<!-- Libs externas -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- App -->
+<script src="js/config.js"></script>
+<script src="js/helpers.js"></script>
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/tab_dashboard.js"></script>
+<script src="js/tab_planejamento.js"></script>
+<script src="js/tab_analise.js"></script>
+<script src="js/tab_lancamentos.js"></script>
+<script src="js/tab_historico.js"></script>
+<script src="js/tab_conta.js"></script>
+<script src="js/tab_usuarios.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
