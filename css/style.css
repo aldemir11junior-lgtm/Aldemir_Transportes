@@ -30,6 +30,12 @@ button, input, select, textarea { font-family: inherit; }
 
 .login-box { max-width: 420px; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
 .menu-box { max-width: 320px; margin: 10px auto 0; display: flex; flex-direction: column; gap: 10px; }
+.menu-sair-row { max-width: 320px; margin: 16px auto 0; display: flex; justify-content: flex-end; }
+
+@media (min-width: 700px) {
+  .menu-box { max-width: 620px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .menu-sair-row { max-width: 620px; }
+}
 
 .campo-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); margin: 12px 0 4px; }
 .campo-input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text-main); font-size: 0.9rem; }
@@ -45,15 +51,15 @@ button, input, select, textarea { font-family: inherit; }
 .btn-block { width: 100%; }
 .btn-sm { padding: 6px 12px; font-size: 0.82rem; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-menu { background: var(--menu-blue); color: #fff; font-weight: 600; font-size: 1.15rem; padding: 14px; }
-.btn-menu:hover { background: var(--menu-blue-dark); }
+.btn-menu { background: var(--menu-blue); color: #fff; font-weight: 600; font-size: 1.1rem; padding: 14px; border-radius: 10px; letter-spacing: .01em; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform .1s, background .15s; }
+.btn-menu:hover { background: var(--menu-blue-dark); transform: translateY(-1px); }
 
 /* ── NAVEGAÇÃO SUPERIOR (Voltar/Sair) ── */
-.top-nav { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 20px 0; }
+.top-nav { position: absolute; top: 14px; right: 20px; display: flex; gap: 8px; padding: 0; z-index: 2; }
 
 /* ── LAYOUT DAS PÁGINAS ── */
-#app { max-width: 1280px; margin: 0 auto; padding: 0 20px 40px; }
-.page-title { font-size: 1.5rem; font-weight: 800; color: var(--accent); margin: 10px 0 16px; }
+#app { max-width: 1280px; margin: 0 auto; padding: 0 20px 40px; position: relative; }
+.page-title { font-size: 1.5rem; font-weight: 800; color: var(--accent); margin: 10px 0 16px; padding-right: 120px; }
 .section-title { font-size: 0.95rem; font-weight: 700; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 10px; margin: 20px 0 12px; text-transform: uppercase; letter-spacing: .04em; }
 .divider { height: 2px; background: linear-gradient(90deg, var(--accent), transparent); margin: 18px 0; border-radius: 2px; }
 .caption { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
@@ -127,7 +133,7 @@ table.tabela-simples td { padding: 8px; border-bottom: 1px solid var(--border); 
 /* ── RESPONSIVO (mobile) ── */
 @media (max-width: 768px) {
   #app { padding: 0 12px 30px; }
-  .top-nav { padding: 10px 12px 0; }
+  .top-nav { top: 12px; right: 12px; }
   table.tabela-simples { display: block; overflow-x: auto; }
-  .btn { min-height: 44px; }
+  .btn { min-height: 60px; }
 }

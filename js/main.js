@@ -4,16 +4,17 @@
 // categoria) → Página (com Voltar/Sair no topo) — igual ao app.py.
 // ─────────────────────────────────────────────────────────────────────────
 
-const MENU_GERENCIAL = [
-  { chave: 'dashboard', label: 'Dashboard' },
-  { chave: 'motoristas', label: 'Motoristas' },
-  { chave: 'frota', label: 'Frota' },
-  { chave: 'usuarios', label: 'Usuários' },
-];
-const MENU_OPERACIONAL = [
+const MENU_PRINCIPAL = [
+  { chave: 'dashboard', label: 'Dashboard', apenasGerente: true },
   { chave: 'viagens', label: 'Viagens' },
   { chave: 'combustivel', label: 'Combustível' },
   { chave: 'manutencao', label: 'Manutenção' },
+  { chave: 'cadastro', label: 'Cadastro', apenasGerente: true },
+  { chave: 'usuarios', label: 'Usuários', apenasGerente: true },
+];
+const CADASTRO_OPCOES = [
+  { chave: 'motoristas', label: 'Motorista' },
+  { chave: 'frota', label: 'Frota' },
 ];
 
 const STATE = {
@@ -59,41 +60,43 @@ function renderMenuInicial() {
     </div>
     <div class="menu-box">
   `;
-  if (u.perfil === 'gerente') {
-    html += `<button class="btn btn-menu" id="menu-gerencial">Gerencial</button>`;
+  for (const o of MENU_PRINCIPAL) {
+    if (o.apenasGerente && u.perfil !== 'gerente') continue;
+    html += `<button class="btn btn-menu" data-menu="${o.chave}">${escapeHtml(o.label)}</button>`;
   }
   html += `
-      <button class="btn btn-menu" id="menu-operacional">Operacional</button>
-      <button class="btn btn-block" id="menu-sair" style="margin-top:18px;">Sair</button>
     </div>
+    <div class="menu-sair-row"><button class="btn btn-sm" id="menu-sair">Sair</button></div>
   `;
   box.innerHTML = html;
 
-  qs('#menu-gerencial')?.addEventListener('click', () => { STATE.categoriaAtual = 'gerencial'; renderizarTela(); });
-  qs('#menu-operacional').addEventListener('click', () => { STATE.categoriaAtual = 'operacional'; renderizarTela(); });
+  qsa('[data-menu]', box).forEach(btn => btn.addEventListener('click', () => {
+    const chave = btn.dataset.menu;
+    if (chave === 'cadastro') {
+      STATE.categoriaAtual = 'cadastro';
+    } else {
+      STATE.categoriaAtual = 'root';
+      STATE.paginaAtual = chave;
+    }
+    renderizarTela();
+  }));
   qs('#menu-sair').addEventListener('click', fazerLogout);
 }
 
 function renderSubmenu() {
   const box = qs('#tela-submenu');
-  const opcoes = STATE.categoriaAtual === 'gerencial' ? MENU_GERENCIAL : MENU_OPERACIONAL;
-  const titulo = STATE.categoriaAtual === 'gerencial' ? 'Gerencial' : 'Operacional';
-
   let html = `
+    <div class="top-nav"><button class="btn btn-sm" id="submenu-voltar">Voltar</button></div>
     <div class="login-header">
-      <div class="login-brand">${titulo}</div>
+      <div class="login-brand">Cadastro</div>
       <div class="login-brand-bar"></div>
     </div>
     <div class="menu-box">
   `;
-  for (const o of opcoes) {
+  for (const o of CADASTRO_OPCOES) {
     html += `<button class="btn btn-menu" data-pagina="${o.chave}">${escapeHtml(o.label)}</button>`;
   }
-  html += `
-      <button class="btn btn-block" id="submenu-voltar" style="margin-top:18px;">Voltar</button>
-      <button class="btn btn-block" id="submenu-sair">Sair</button>
-    </div>
-  `;
+  html += `</div>`;
   box.innerHTML = html;
 
   qsa('[data-pagina]', box).forEach(btn => btn.addEventListener('click', () => {
@@ -101,7 +104,6 @@ function renderSubmenu() {
     renderizarTela();
   }));
   qs('#submenu-voltar').addEventListener('click', () => { STATE.categoriaAtual = null; renderizarTela(); });
-  qs('#submenu-sair').addEventListener('click', fazerLogout);
 }
 
 // Botões Voltar/Sair no topo de cada página (equivalente a barra_navegacao_superior)
@@ -114,7 +116,11 @@ function barraNavegacaoSuperior() {
   `;
 }
 function ligarBarraNavegacaoSuperior() {
-  qs('#pg-voltar').addEventListener('click', () => { STATE.paginaAtual = null; renderizarTela(); });
+  qs('#pg-voltar').addEventListener('click', () => {
+    STATE.paginaAtual = null;
+    if (STATE.categoriaAtual !== 'cadastro') STATE.categoriaAtual = null;
+    renderizarTela();
+  });
   qs('#pg-sair').addEventListener('click', fazerLogout);
 }
 
