@@ -135,5 +135,5 @@ table.tabela-simples td { padding: 8px; border-bottom: 1px solid var(--border); 
   #app { padding: 0 12px 30px; }
   .top-nav { top: 12px; right: 12px; }
   table.tabela-simples { display: block; overflow-x: auto; }
-  .btn { min-height: 60px; }
+  .btn { min-height: 80px; }
 }
