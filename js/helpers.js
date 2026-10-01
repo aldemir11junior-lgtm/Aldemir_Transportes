@@ -136,29 +136,32 @@ function imprimirTabela(titulo, linhas, cabecalho, colunas) {
   win.document.close();
 }
 
-// ─── CACHE DE CIDADES DO BRASIL (localStorage, equivalente ao json em disco) ──
-const CIDADES_CACHE_KEY = 'transp_cidades_brasil';
+// ─── CACHE DE CIDADES (MS, SP, PR — localStorage, equivalente ao json em disco) ──
+const CIDADES_CACHE_KEY = 'transp_cidades_v2';
+const UFS_PERMITIDAS = ['MS', 'SP', 'PR'];
 async function carregarCidadesBrasil() {
   const salvas = localStorage.getItem(CIDADES_CACHE_KEY);
   if (salvas) {
     try { const lista = JSON.parse(salvas); if (lista.length) return lista; } catch (e) {}
   }
   try {
-    const resp = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios');
-    if (!resp.ok) throw new Error('Falha ao buscar cidades');
-    const municipios = await resp.json();
+    const respostas = await Promise.all(
+      UFS_PERMITIDAS.map(uf => fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`))
+    );
+    const listas = await Promise.all(respostas.map(r => {
+      if (!r.ok) throw new Error('Falha ao buscar cidades');
+      return r.json();
+    }));
     const set = new Set();
-    for (const m of municipios) {
-      let uf = null;
-      try { uf = m.microrregiao.mesorregiao.UF.sigla; }
-      catch (e) { try { uf = m['regiao-imediata']['regiao-intermediaria'].UF.sigla; } catch (e2) { continue; } }
-      set.add(`${m.nome} - ${uf}`);
-    }
+    listas.forEach((municipios, i) => {
+      const uf = UFS_PERMITIDAS[i];
+      for (const m of municipios) set.add(`${m.nome} - ${uf}`);
+    });
     const cidades = Array.from(set).sort();
     if (cidades.length) localStorage.setItem(CIDADES_CACHE_KEY, JSON.stringify(cidades));
     return cidades;
   } catch (e) {
-    console.warn('Não foi possível carregar cidades do Brasil:', e);
+    console.warn('Não foi possível carregar cidades:', e);
     return [];
   }
 }

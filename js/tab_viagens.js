@@ -44,18 +44,18 @@ async function renderFormularioViagem(container, viagem, aoSalvar) {
   const origemAtual = viagem ? viagem.origem : (cidades.includes('Três Lagoas - MS') ? 'Três Lagoas - MS' : (cidades[0] || ''));
   const destinoAtual = viagem ? viagem.destino : (cidades[0] || '');
 
-  const campoOrigem = cidades.length
-    ? `<select id="vg-origem-${sufixo}">${cidades.map(c => `<option value="${escapeHtml(c)}" ${c === origemAtual ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select>`
-    : `<input type="text" id="vg-origem-${sufixo}" value="${escapeHtml(viagem ? viagem.origem : '')}">`;
-  const campoDestino = cidades.length
-    ? `<select id="vg-destino-${sufixo}">${cidades.map(c => `<option value="${escapeHtml(c)}" ${c === destinoAtual ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select>`
-    : `<input type="text" id="vg-destino-${sufixo}" value="${escapeHtml(viagem ? viagem.destino : '')}">`;
+  const datalistCidades = cidades.length
+    ? `<datalist id="lista-cidades-${sufixo}">${cidades.map(c => `<option value="${escapeHtml(c)}">`).join('')}</datalist>`
+    : '';
+  const campoOrigem = `<input type="text" id="vg-origem-${sufixo}" list="lista-cidades-${sufixo}" placeholder="Digite a cidade" value="${escapeHtml(origemAtual)}">`;
+  const campoDestino = `<input type="text" id="vg-destino-${sufixo}" list="lista-cidades-${sufixo}" placeholder="Digite a cidade" value="${escapeHtml(destinoAtual)}">`;
 
   formBox.innerHTML = `
     <div class="form-row cols-2">
       <div class="field"><label>Data da viagem *</label><input type="date" id="vg-data-${sufixo}" value="${viagem ? viagem.data.slice(0,10) : dataISO(hojeBr())}"></div>
       <div class="field"><label>Status *</label><select id="vg-status-${sufixo}">${Object.entries(STATUS_OPCOES).map(([k, v]) => `<option value="${k}" ${viagem && viagem.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
     </div>
+    ${datalistCidades}
     <div class="form-row cols-2">
       <div class="field"><label>Origem *</label>${campoOrigem}</div>
       <div class="field"><label>Destino *</label>${campoDestino}</div>
