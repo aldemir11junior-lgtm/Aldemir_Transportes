@@ -11,6 +11,7 @@ function renderCombustivel() {
     <div class="login-abas" style="max-width:420px;">
       <button class="login-aba-btn ${COMB_SUBABA === 'novo' ? 'active' : ''}" data-sub="novo">Novo abastecimento</button>
       <button class="login-aba-btn ${COMB_SUBABA === 'lista' ? 'active' : ''}" data-sub="lista">Lançamentos</button>
+      ${STATE.usuario.perfil === 'gerente' ? `<button class="login-aba-btn ${COMB_SUBABA === 'excluidos' ? 'active' : ''}" data-sub="excluidos">Excluídos (${STATE.dados.abastecimentos_excluidos.length})</button>` : ''}
     </div>
     <div id="comb-corpo"></div>
   `;
@@ -18,7 +19,50 @@ function renderCombustivel() {
   qsa('[data-sub]', box).forEach(btn => btn.addEventListener('click', () => { COMB_SUBABA = btn.dataset.sub; renderCombustivel(); }));
 
   if (COMB_SUBABA === 'novo') renderFormularioAbastecimento(qs('#comb-corpo'), null, () => { COMB_SUBABA = 'lista'; renderCombustivel(); });
+  else if (COMB_SUBABA === 'excluidos' && STATE.usuario.perfil === 'gerente') renderAbastecimentosExcluidos();
   else renderListaAbastecimentos();
+}
+
+function renderAbastecimentosExcluidos() {
+  const box = qs('#comb-corpo');
+  const lista = abastecimentosParaLista({ ...STATE.dados, abastecimentos: STATE.dados.abastecimentos_excluidos })
+    .sort((a, b) => new Date(b.excluido_em) - new Date(a.excluido_em));
+
+  if (!lista.length) {
+    box.innerHTML = `<div class="alerta alerta-info">Nenhum abastecimento excluído.</div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="alerta alerta-info">Abastecimentos excluídos ficam aqui por ${DIAS_LIXEIRA} dias e depois são apagados definitivamente do banco.</div>
+    <table class="tabela-simples"><thead><tr>
+      <th>ID</th><th>Data</th><th>Veículo</th><th>Motorista</th><th>Litros</th><th>Valor Pago</th><th>Cidade</th><th>Excluído em</th><th>Dias restantes</th>
+    </tr></thead><tbody>${lista.map(a => `<tr>
+      <td>${a.id}</td><td>${fmtDataBR(a.data)}</td><td>${escapeHtml(a.veiculo)}</td><td>${escapeHtml(a.motorista)}</td>
+      <td>${formatarNumero(a.litros, 1)}</td><td>${fmtBRL(a.valor_pago)}</td><td>${escapeHtml(a.cidade)}</td>
+      <td>${fmtDataBR(a.excluido_em)}</td><td>${diasRestantesExclusao(a.excluido_em)}</td>
+    </tr>`).join('')}</tbody></table>
+    <div class="divider"></div>
+    <div class="field" style="max-width:420px;"><label>Selecione pelo ID</label>
+      <select id="ab-exc-id">${lista.map(a => `<option value="${a.id}">#${a.id} — ${escapeHtml(a.cidade)} (${escapeHtml(a.veiculo)})</option>`).join('')}</select>
+    </div>
+    <div class="form-row cols-2">
+      <button class="btn" id="ab-exc-restaurar">Restaurar abastecimento</button>
+      <button class="btn btn-danger" id="ab-exc-apagar">Apagar definitivamente</button>
+    </div>
+  `;
+
+  qs('#ab-exc-restaurar').addEventListener('click', async () => {
+    const id = parseInt(qs('#ab-exc-id').value);
+    try { await restaurarAbastecimento(id); await atualizarDados(); renderCombustivel(); }
+    catch (e) { alert('Erro ao restaurar: ' + e.message); }
+  });
+  qs('#ab-exc-apagar').addEventListener('click', async () => {
+    const id = parseInt(qs('#ab-exc-id').value);
+    if (!confirm(`Apagar definitivamente o abastecimento #${id}? Essa ação não pode ser desfeita.`)) return;
+    try { await apagarAbastecimentoDefinitivo(id); await atualizarDados(); renderCombustivel(); }
+    catch (e) { alert('Erro ao apagar: ' + e.message); }
+  });
 }
 
 async function renderFormularioAbastecimento(container, abastecimento, aoSalvar) {
@@ -150,11 +194,11 @@ function renderListaAbastecimentos() {
 
   qs('#ab-btn-excluir')?.addEventListener('click', async () => {
     const id = parseInt(qs('#ab-sel-id').value);
-    if (!confirm(`Excluir o abastecimento #${id}? Essa ação não pode ser desfeita.`)) return;
+    if (!confirm(`Excluir o abastecimento #${id}? Ele ficará na aba Excluídos por ${DIAS_LIXEIRA} dias antes de ser apagado.`)) return;
     try {
       await excluirAbastecimento(id);
       await atualizarDados();
-      renderListaAbastecimentos();
+      renderCombustivel();
     } catch (e) { alert('Erro ao excluir: ' + e.message); }
   });
 

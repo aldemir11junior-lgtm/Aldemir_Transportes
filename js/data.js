@@ -124,15 +124,24 @@ async function atualizarViagem(id, registro) {
   const { error } = await sb.from('viagens').update(registro).eq('id', id);
   checarErro(error, 'Erro ao atualizar viagem');
 }
+// Exclusão em duas etapas: vai para "Excluídas" (excluido_em) e só é apagada do banco após DIAS_LIXEIRA dias.
 async function excluirViagem(id) {
-  const { error } = await sb.from('viagens').delete().eq('id', id);
+  const { error } = await sb.from('viagens').update({ excluido_em: new Date().toISOString() }).eq('id', id);
   checarErro(error, 'Erro ao excluir viagem');
+}
+async function restaurarViagem(id) {
+  const { error } = await sb.from('viagens').update({ excluido_em: null }).eq('id', id);
+  checarErro(error, 'Erro ao restaurar viagem');
+}
+async function apagarViagemDefinitivo(id) {
+  const { error } = await sb.from('viagens').delete().eq('id', id);
+  checarErro(error, 'Erro ao apagar viagem');
 }
 
 // ─── ABASTECIMENTOS ────────────────────────────────────────────────────
 async function listarAbastecimentos() {
   const { data, error } = await sb.from('abastecimentos')
-    .select('id, data, veiculo_id, motorista_id, litros, valor_pago, hodometro, cidade, criado_por_id')
+    .select('id, data, veiculo_id, motorista_id, litros, valor_pago, hodometro, cidade, criado_por_id, excluido_em')
     .order('data', { ascending: false }).order('id', { ascending: false });
   checarErro(error, 'Erro ao carregar abastecimentos');
   return data || [];
@@ -146,16 +155,46 @@ async function atualizarAbastecimento(id, registro) {
   checarErro(error, 'Erro ao atualizar abastecimento');
 }
 async function excluirAbastecimento(id) {
-  const { error } = await sb.from('abastecimentos').delete().eq('id', id);
+  const { error } = await sb.from('abastecimentos').update({ excluido_em: new Date().toISOString() }).eq('id', id);
   checarErro(error, 'Erro ao excluir abastecimento');
+}
+async function restaurarAbastecimento(id) {
+  const { error } = await sb.from('abastecimentos').update({ excluido_em: null }).eq('id', id);
+  checarErro(error, 'Erro ao restaurar abastecimento');
+}
+async function apagarAbastecimentoDefinitivo(id) {
+  const { error } = await sb.from('abastecimentos').delete().eq('id', id);
+  checarErro(error, 'Erro ao apagar abastecimento');
+}
+
+// ─── LIXEIRA: apaga do banco o que está excluído há mais de DIAS_LIXEIRA dias ──
+const DIAS_LIXEIRA = 15;
+async function purgarExcluidosVencidos() {
+  const limite = new Date(Date.now() - DIAS_LIXEIRA * 24 * 60 * 60 * 1000).toISOString();
+  for (const tabela of ['viagens', 'abastecimentos']) {
+    const { error } = await sb.from(tabela).delete().lt('excluido_em', limite);
+    if (error) console.warn(`Não foi possível limpar ${tabela} excluídos:`, error);
+  }
+}
+function diasRestantesExclusao(excluidoEm) {
+  const decorrido = Date.now() - new Date(excluidoEm).getTime();
+  return Math.max(0, Math.ceil(DIAS_LIXEIRA - decorrido / (24 * 60 * 60 * 1000)));
 }
 
 // ─── CARREGAR TUDO DE UMA VEZ (equivalente ao carregar_dados do app.py) ──
+// `viagens` e `abastecimentos` trazem só os ativos; os excluídos ficam em *_excluidas.
 async function carregarDados() {
-  const [motoristas, veiculos, carretas, viagens, abastecimentos] = await Promise.all([
+  await purgarExcluidosVencidos();
+  const [motoristas, veiculos, carretas, todasViagens, todosAbastecimentos] = await Promise.all([
     listarMotoristas(), listarVeiculos(), listarCarretas(), listarViagens(), listarAbastecimentos(),
   ]);
-  return { motoristas, veiculos, carretas, viagens, abastecimentos };
+  return {
+    motoristas, veiculos, carretas,
+    viagens: todasViagens.filter(v => !v.excluido_em),
+    viagens_excluidas: todasViagens.filter(v => v.excluido_em),
+    abastecimentos: todosAbastecimentos.filter(a => !a.excluido_em),
+    abastecimentos_excluidos: todosAbastecimentos.filter(a => a.excluido_em),
+  };
 }
 
 // ─── FUNÇÕES AUXILIARES DE CONSULTA (mesmas do app.py) ──────────────────
@@ -197,6 +236,7 @@ function viagensParaLista(dados) {
       pedagio, outros_custos: outrosCustos,
       custo_total: pedagio + outrosCustos,
       status: v.status, observacoes: v.observacoes || '',
+      excluido_em: v.excluido_em || null,
     };
   });
 }
@@ -231,6 +271,7 @@ function abastecimentosParaLista(dados) {
       hodometro: parseFloat(a.hodometro || 0),
       km_rodado: kmRodadoPorId[a.id],
       cidade: a.cidade,
+      excluido_em: a.excluido_em || null,
     };
   });
 }

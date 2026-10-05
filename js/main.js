@@ -21,7 +21,7 @@ const STATE = {
   usuario: null,
   categoriaAtual: null,
   paginaAtual: null,
-  dados: { motoristas: [], veiculos: [], carretas: [], viagens: [], abastecimentos: [] },
+  dados: { motoristas: [], veiculos: [], carretas: [], viagens: [], viagens_excluidas: [], abastecimentos: [], abastecimentos_excluidos: [] },
   editando: {}, // ex: { motoristaId, veiculoId, carretaId, usuarioId, viagemId, abastecimentoId }
 };
 

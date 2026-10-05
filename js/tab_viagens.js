@@ -11,6 +11,7 @@ function renderViagens() {
     <div class="login-abas" style="max-width:420px;">
       <button class="login-aba-btn ${VIAGENS_SUBABA === 'nova' ? 'active' : ''}" data-sub="nova">Nova viagem</button>
       <button class="login-aba-btn ${VIAGENS_SUBABA === 'lista' ? 'active' : ''}" data-sub="lista">Lançamentos</button>
+      ${STATE.usuario.perfil === 'gerente' ? `<button class="login-aba-btn ${VIAGENS_SUBABA === 'excluidas' ? 'active' : ''}" data-sub="excluidas">Excluídas (${STATE.dados.viagens_excluidas.length})</button>` : ''}
     </div>
     <div id="viagens-corpo"></div>
   `;
@@ -18,7 +19,50 @@ function renderViagens() {
   qsa('[data-sub]', box).forEach(btn => btn.addEventListener('click', () => { VIAGENS_SUBABA = btn.dataset.sub; renderViagens(); }));
 
   if (VIAGENS_SUBABA === 'nova') renderFormularioViagem(qs('#viagens-corpo'), null, () => { VIAGENS_SUBABA = 'lista'; renderViagens(); });
+  else if (VIAGENS_SUBABA === 'excluidas' && STATE.usuario.perfil === 'gerente') renderViagensExcluidas();
   else renderListaViagens();
+}
+
+function renderViagensExcluidas() {
+  const box = qs('#viagens-corpo');
+  const lista = viagensParaLista({ ...STATE.dados, viagens: STATE.dados.viagens_excluidas })
+    .sort((a, b) => new Date(b.excluido_em) - new Date(a.excluido_em));
+
+  if (!lista.length) {
+    box.innerHTML = `<div class="alerta alerta-info">Nenhuma viagem excluída.</div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="alerta alerta-info">Viagens excluídas ficam aqui por ${DIAS_LIXEIRA} dias e depois são apagadas definitivamente do banco.</div>
+    <table class="tabela-simples"><thead><tr>
+      <th>ID</th><th>Data</th><th>Cavalo</th><th>Motorista</th><th>Origem</th><th>Destino</th><th>Faturamento</th><th>Excluída em</th><th>Dias restantes</th>
+    </tr></thead><tbody>${lista.map(v => `<tr>
+      <td>${v.id}</td><td>${fmtDataBR(v.data)}</td><td>${escapeHtml(v.veiculo)}</td><td>${escapeHtml(v.motorista)}</td>
+      <td>${escapeHtml(v.origem)}</td><td>${escapeHtml(v.destino)}</td><td>${fmtBRL(v.faturamento)}</td>
+      <td>${fmtDataBR(v.excluido_em)}</td><td>${diasRestantesExclusao(v.excluido_em)}</td>
+    </tr>`).join('')}</tbody></table>
+    <div class="divider"></div>
+    <div class="field" style="max-width:420px;"><label>Selecione pelo ID</label>
+      <select id="vg-exc-id">${lista.map(v => `<option value="${v.id}">#${v.id} — ${escapeHtml(v.origem)} → ${escapeHtml(v.destino)}</option>`).join('')}</select>
+    </div>
+    <div class="form-row cols-2">
+      <button class="btn" id="vg-exc-restaurar">Restaurar viagem</button>
+      <button class="btn btn-danger" id="vg-exc-apagar">Apagar definitivamente</button>
+    </div>
+  `;
+
+  qs('#vg-exc-restaurar').addEventListener('click', async () => {
+    const id = parseInt(qs('#vg-exc-id').value);
+    try { await restaurarViagem(id); await atualizarDados(); renderViagens(); }
+    catch (e) { alert('Erro ao restaurar: ' + e.message); }
+  });
+  qs('#vg-exc-apagar').addEventListener('click', async () => {
+    const id = parseInt(qs('#vg-exc-id').value);
+    if (!confirm(`Apagar definitivamente a viagem #${id}? Essa ação não pode ser desfeita.`)) return;
+    try { await apagarViagemDefinitivo(id); await atualizarDados(); renderViagens(); }
+    catch (e) { alert('Erro ao apagar: ' + e.message); }
+  });
 }
 
 // Renderiza o formulário de nova/edição de viagem dentro do `container` informado.
@@ -180,11 +224,11 @@ function renderListaViagens() {
 
   qs('#vg-btn-excluir')?.addEventListener('click', async () => {
     const id = parseInt(qs('#vg-sel-id').value);
-    if (!confirm(`Excluir a viagem #${id}? Essa ação não pode ser desfeita.`)) return;
+    if (!confirm(`Excluir a viagem #${id}? Ela ficará na aba Excluídas por ${DIAS_LIXEIRA} dias antes de ser apagada.`)) return;
     try {
       await excluirViagem(id);
       await atualizarDados();
-      renderListaViagens();
+      renderViagens();
     } catch (e) { alert('Erro ao excluir: ' + e.message); }
   });
 
