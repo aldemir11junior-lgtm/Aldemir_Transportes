@@ -43,6 +43,30 @@ function fmtBRL(valor) {
   return 'R$ ' + formatarNumero(valor, 2);
 }
 
+// ─── CAMPOS NUMÉRICOS NO PADRÃO BRASILEIRO (1.234,56) ──────────────────
+// "1.234,56" -> 1234.56
+function parseNumeroBR(texto) {
+  if (texto === null || texto === undefined) return 0;
+  const s = String(texto).trim().replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+// valor inicial do campo (usado nos formulários)
+function valorInputBR(valor, casas = 2) {
+  return formatarNumero(valor, casas);
+}
+// máscara automática: qualquer <input data-casas="N"> formata enquanto digita
+document.addEventListener('input', e => {
+  const inp = e.target;
+  if (!inp.matches || !inp.matches('input[data-casas]')) return;
+  const casas = parseInt(inp.dataset.casas, 10) || 0;
+  const digitos = inp.value.replace(/\D/g, '');
+  inp.value = formatarNumero(digitos ? parseInt(digitos, 10) / Math.pow(10, casas) : 0, casas);
+});
+document.addEventListener('focusin', e => {
+  if (e.target.matches && e.target.matches('input[data-casas]')) e.target.select();
+});
+
 // ─── STATUS DE VIAGEM ────────────────────────────────────────────────────
 const STATUS_OPCOES = {
   em_transito: 'Em Trânsito',

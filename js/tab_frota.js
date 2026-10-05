@@ -48,7 +48,7 @@ function renderFormVeiculo() {
   qs('#veic-form').innerHTML = `
     <div class="field"><label>Placa *</label><input type="text" id="veic-placa" placeholder="ABC1D23" value="${escapeHtml(editando ? editando.placa : '')}"></div>
     <div class="field"><label>Modelo</label><input type="text" id="veic-modelo" value="${escapeHtml(editando ? (editando.modelo || '') : '')}"></div>
-    <div class="field"><label>Capacidade (KG)</label><input type="number" min="0" step="100" id="veic-capacidade" value="${editando ? editando.capacidade_kg : 0}"></div>
+    <div class="field"><label>Capacidade (KG)</label><input type="text" inputmode="decimal" data-casas="0" id="veic-capacidade" value="${valorInputBR(editando ? editando.capacidade_kg : 0, 0)}"></div>
     <div class="form-row cols-2">
       <button class="btn btn-primary" id="veic-salvar">Salvar</button>
       ${editando ? '<button class="btn" id="veic-cancelar">Cancelar edição</button>' : ''}
@@ -61,7 +61,7 @@ function renderFormVeiculo() {
 async function salvarVeiculo(editando) {
   const placa = qs('#veic-placa').value.trim().toUpperCase();
   const modelo = qs('#veic-modelo').value.trim();
-  const capacidade = parseFloat(qs('#veic-capacidade').value) || 0;
+  const capacidade = parseNumeroBR(qs('#veic-capacidade').value);
   if (!placa) { mostrarMsg('#veic-msg', 'error', 'Informe a placa do cavalo.'); return; }
 
   const btn = qs('#veic-salvar');
@@ -132,7 +132,7 @@ function renderFormCarreta() {
   qs('#carr-form').innerHTML = `
     <div class="field"><label>Placa da carreta *</label><input type="text" id="carr-placa" placeholder="ABC1D23" value="${escapeHtml(editando ? editando.placa : '')}"></div>
     <div class="field"><label>Modelo *</label><input type="text" id="carr-modelo" placeholder="Ex: Basculante, Graneleira" value="${escapeHtml(editando ? (editando.modelo || '') : '')}"></div>
-    <div class="field"><label>Capacidade (KG)</label><input type="number" min="0" step="100" id="carr-capacidade" value="${editando ? editando.capacidade_kg : 0}"></div>
+    <div class="field"><label>Capacidade (KG)</label><input type="text" inputmode="decimal" data-casas="0" id="carr-capacidade" value="${valorInputBR(editando ? editando.capacidade_kg : 0, 0)}"></div>
     <div class="form-row cols-2">
       <button class="btn btn-primary" id="carr-salvar">Salvar</button>
       ${editando ? '<button class="btn" id="carr-cancelar">Cancelar edição</button>' : ''}
@@ -145,7 +145,7 @@ function renderFormCarreta() {
 async function salvarCarreta(editando) {
   const placa = qs('#carr-placa').value.trim().toUpperCase();
   const modelo = qs('#carr-modelo').value.trim();
-  const capacidade = parseFloat(qs('#carr-capacidade').value) || 0;
+  const capacidade = parseNumeroBR(qs('#carr-capacidade').value);
   if (!placa) { mostrarMsg('#carr-msg', 'error', 'Informe a placa da carreta.'); return; }
   if (!modelo) { mostrarMsg('#carr-msg', 'error', 'Informe o modelo da carreta.'); return; }
 

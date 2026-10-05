@@ -66,15 +66,15 @@ async function renderFormularioViagem(container, viagem, aoSalvar) {
     </div>
     <div class="form-row cols-2">
       <div class="field"><label>Motorista *</label><select id="vg-motorista-${sufixo}">${motoristas.map(m => `<option value="${m.id}" ${viagem && viagem.motorista_id === m.id ? 'selected' : ''}>${escapeHtml(m.nome)}</option>`).join('')}</select></div>
-      <div class="field"><label>Volume transportado (toneladas)</label><input type="number" min="0" step="0.1" id="vg-volume-${sufixo}" value="${viagem ? viagem.volume_tons : 0}"></div>
+      <div class="field"><label>Volume transportado (toneladas)</label><input type="text" inputmode="decimal" data-casas="2" id="vg-volume-${sufixo}" value="${valorInputBR(viagem ? viagem.volume_tons : 0, 2)}"></div>
     </div>
     <div class="form-row cols-2">
-      <div class="field"><label>Adiantamento de faturamento (R$) *</label><input type="number" min="0" step="100" id="vg-adiantamento-${sufixo}" value="${viagem ? viagem.faturamento_adiantamento : 0}"></div>
-      <div class="field"><label>Restante do faturamento (R$)</label><input type="number" min="0" step="100" id="vg-restante-${sufixo}" value="${viagem ? viagem.faturamento_restante : 0}"></div>
+      <div class="field"><label>Adiantamento de faturamento (R$) *</label><input type="text" inputmode="decimal" data-casas="2" id="vg-adiantamento-${sufixo}" value="${valorInputBR(viagem ? viagem.faturamento_adiantamento : 0, 2)}"></div>
+      <div class="field"><label>Restante do faturamento (R$)</label><input type="text" inputmode="decimal" data-casas="2" id="vg-restante-${sufixo}" value="${valorInputBR(viagem ? viagem.faturamento_restante : 0, 2)}"></div>
     </div>
     <div class="form-row cols-2">
-      <div class="field"><label>Pedágio (R$)</label><input type="number" min="0" step="10" id="vg-pedagio-${sufixo}" value="${viagem ? viagem.pedagio : 0}"></div>
-      <div class="field"><label>Outros custos (R$)</label><input type="number" min="0" step="10" id="vg-outros-${sufixo}" value="${viagem ? viagem.outros_custos : 0}"></div>
+      <div class="field"><label>Pedágio (R$)</label><input type="text" inputmode="decimal" data-casas="2" id="vg-pedagio-${sufixo}" value="${valorInputBR(viagem ? viagem.pedagio : 0, 2)}"></div>
+      <div class="field"><label>Outros custos (R$)</label><input type="text" inputmode="decimal" data-casas="2" id="vg-outros-${sufixo}" value="${valorInputBR(viagem ? viagem.outros_custos : 0, 2)}"></div>
     </div>
     <div class="field"><label>Observações</label><textarea id="vg-obs-${sufixo}" rows="2">${escapeHtml(viagem ? viagem.observacoes : '')}</textarea></div>
     <button class="btn btn-primary btn-block" id="vg-salvar-${sufixo}">Salvar viagem</button>
@@ -87,8 +87,8 @@ async function salvarViagem(container, viagem, sufixo, aoSalvar) {
   const msgBox = qs(`#viagem-msg-${sufixo}`, container);
   const origem = qs(`#vg-origem-${sufixo}`, container).value.trim();
   const destino = qs(`#vg-destino-${sufixo}`, container).value.trim();
-  const adiantamento = parseFloat(qs(`#vg-adiantamento-${sufixo}`, container).value) || 0;
-  const volume = parseFloat(qs(`#vg-volume-${sufixo}`, container).value) || 0;
+  const adiantamento = parseNumeroBR(qs(`#vg-adiantamento-${sufixo}`, container).value);
+  const volume = parseNumeroBR(qs(`#vg-volume-${sufixo}`, container).value);
 
   const erros = [];
   if (!origem || !destino) erros.push('Informe origem e destino.');
@@ -104,9 +104,9 @@ async function salvarViagem(container, viagem, sufixo, aoSalvar) {
     origem, destino,
     volume_tons: volume,
     faturamento_adiantamento: adiantamento,
-    faturamento_restante: parseFloat(qs(`#vg-restante-${sufixo}`, container).value) || 0,
-    pedagio: parseFloat(qs(`#vg-pedagio-${sufixo}`, container).value) || 0,
-    outros_custos: parseFloat(qs(`#vg-outros-${sufixo}`, container).value) || 0,
+    faturamento_restante: parseNumeroBR(qs(`#vg-restante-${sufixo}`, container).value),
+    pedagio: parseNumeroBR(qs(`#vg-pedagio-${sufixo}`, container).value),
+    outros_custos: parseNumeroBR(qs(`#vg-outros-${sufixo}`, container).value),
     status: qs(`#vg-status-${sufixo}`, container).value,
     observacoes: qs(`#vg-obs-${sufixo}`, container).value.trim(),
   };

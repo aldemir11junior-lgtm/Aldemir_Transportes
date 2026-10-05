@@ -52,9 +52,9 @@ async function renderFormularioAbastecimento(container, abastecimento, aoSalvar)
       <div class="field"><label>Cidade *</label>${campoCidade}</div>
     </div>
     <div class="form-row cols-3">
-      <div class="field"><label>Litros *</label><input type="number" min="0" step="1" id="ab-litros-${sufixo}" value="${abastecimento ? abastecimento.litros : 0}"></div>
-      <div class="field"><label>Valor pago (R$) *</label><input type="number" min="0" step="10" id="ab-valor-${sufixo}" value="${abastecimento ? abastecimento.valor_pago : 0}"></div>
-      <div class="field"><label>Hodômetro (KM) *</label><input type="number" min="0" step="1" id="ab-hodometro-${sufixo}" value="${abastecimento ? abastecimento.hodometro : 0}"></div>
+      <div class="field"><label>Litros *</label><input type="text" inputmode="decimal" data-casas="2" id="ab-litros-${sufixo}" value="${valorInputBR(abastecimento ? abastecimento.litros : 0, 2)}"></div>
+      <div class="field"><label>Valor pago (R$) *</label><input type="text" inputmode="decimal" data-casas="2" id="ab-valor-${sufixo}" value="${valorInputBR(abastecimento ? abastecimento.valor_pago : 0, 2)}"></div>
+      <div class="field"><label>Hodômetro (KM) *</label><input type="text" inputmode="decimal" data-casas="1" id="ab-hodometro-${sufixo}" value="${valorInputBR(abastecimento ? abastecimento.hodometro : 0, 1)}"></div>
     </div>
     <button class="btn btn-primary btn-block" id="ab-salvar-${sufixo}">Salvar abastecimento</button>
   `;
@@ -65,9 +65,9 @@ async function renderFormularioAbastecimento(container, abastecimento, aoSalvar)
 async function salvarAbastecimento(container, abastecimento, sufixo, aoSalvar) {
   const msgBox = qs(`#ab-msg-${sufixo}`, container);
   const cidade = qs(`#ab-cidade-${sufixo}`, container).value.trim();
-  const litros = parseFloat(qs(`#ab-litros-${sufixo}`, container).value) || 0;
-  const valorPago = parseFloat(qs(`#ab-valor-${sufixo}`, container).value) || 0;
-  const hodometro = parseFloat(qs(`#ab-hodometro-${sufixo}`, container).value) || 0;
+  const litros = parseNumeroBR(qs(`#ab-litros-${sufixo}`, container).value);
+  const valorPago = parseNumeroBR(qs(`#ab-valor-${sufixo}`, container).value);
+  const hodometro = parseNumeroBR(qs(`#ab-hodometro-${sufixo}`, container).value);
 
   const erros = [];
   if (!cidade) erros.push('Informe a cidade.');
