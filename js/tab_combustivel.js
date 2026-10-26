@@ -82,11 +82,13 @@ async function renderFormularioAbastecimento(container, abastecimento, aoSalvar)
   if (!formBox) return;
 
   const cidadeAtual = abastecimento ? abastecimento.cidade : (cidades.includes('Três Lagoas - MS') ? 'Três Lagoas - MS' : (cidades[0] || ''));
-  const campoCidade = cidades.length
-    ? `<select id="ab-cidade-${sufixo}">${cidades.map(c => `<option value="${escapeHtml(c)}" ${c === cidadeAtual ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select>`
-    : `<input type="text" id="ab-cidade-${sufixo}" value="${escapeHtml(abastecimento ? abastecimento.cidade : '')}">`;
+  const datalistCidades = cidades.length
+    ? `<datalist id="lista-cidades-ab-${sufixo}">${cidades.map(c => `<option value="${escapeHtml(c)}">`).join('')}</datalist>`
+    : '';
+  const campoCidade = `<input type="text" id="ab-cidade-${sufixo}" list="lista-cidades-ab-${sufixo}" placeholder="Digite a cidade" value="${escapeHtml(cidadeAtual)}">`;
 
   formBox.innerHTML = `
+    ${datalistCidades}
     <div class="form-row cols-2">
       <div class="field"><label>Data *</label><input type="date" id="ab-data-${sufixo}" value="${abastecimento ? abastecimento.data.slice(0,10) : dataISO(hojeBr())}"></div>
       <div class="field"><label>Cavalo (Frota) *</label><select id="ab-veiculo-${sufixo}">${veiculos.map(v => `<option value="${v.id}" ${abastecimento && abastecimento.veiculo_id === v.id ? 'selected' : ''}>${escapeHtml(v.placa)} — ${escapeHtml(v.modelo || '')}</option>`).join('')}</select></div>

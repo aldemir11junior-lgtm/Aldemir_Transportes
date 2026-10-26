@@ -25,10 +25,9 @@ function renderDashboard() {
     return;
   }
 
-  const abastecimentos = abastecimentosParaLista(STATE.dados);
-  const datas = viagens.map(v => parseISO(v.data));
-  const dataMin = new Date(Math.min(...datas.map(d => d.getTime())));
-  const dataMax = new Date(Math.max(...datas.map(d => d.getTime())));
+  const hoje = hojeBr();
+  const dataInicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const dataFimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
 
   const placas = [...new Set(viagens.map(v => v.veiculo))].sort();
   const motoristasNomes = [...new Set(viagens.map(v => v.motorista))].sort();
@@ -38,8 +37,8 @@ function renderDashboard() {
     <div class="page-title">Dashboard</div>
     <div class="section-title">Filtros</div>
     <div class="form-row cols-4">
-      <div class="field"><label>Data inicial</label><input type="date" id="dash-data-ini" value="${dataISO(dataMin)}"></div>
-      <div class="field"><label>Data final</label><input type="date" id="dash-data-fim" value="${dataISO(dataMax)}"></div>
+      <div class="field"><label>Data inicial</label><input type="date" id="dash-data-ini" value="${dataISO(dataInicioMes)}"></div>
+      <div class="field"><label>Data final</label><input type="date" id="dash-data-fim" value="${dataISO(dataFimMes)}"></div>
       <div class="field"><label>Caminhão</label><select id="dash-veiculo"><option value="Todos">Todos</option>${placas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}</select></div>
       <div class="field"><label>Motorista</label><select id="dash-motorista"><option value="Todos">Todos</option>${motoristasNomes.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('')}</select></div>
     </div>
@@ -88,22 +87,13 @@ function renderDashboardConteudo() {
     <div class="kpi roxo"><div class="kpi-label">Viagens Lançadas</div><div class="kpi-value neu">${viagens.length}</div></div>
   </div>`;
 
-  html += `<div class="divider"></div><div class="section-title">Receita, Despesa e Lucro por Caminhão e por Motorista</div>
-    <div class="two-col">
-      <div><div class="caption">Por Caminhão</div><div class="chart-box"><canvas id="chart-rdl-veiculo"></canvas></div></div>
-      <div><div class="caption">Por Motorista</div><div class="chart-box"><canvas id="chart-rdl-motorista"></canvas></div></div>
-    </div>`;
-
   html += `<div class="divider"></div><div class="section-title">Receita, Despesa e Lucro por Mês</div>
     <div class="chart-box"><canvas id="chart-rdl-mes"></canvas></div>`;
 
   html += `<div class="divider"></div><div class="section-title">Quantidade de Viagens Lançadas</div>
-    <div class="two-col">
-      <div><div class="caption">Por Mês</div><div class="chart-box"><canvas id="chart-qtd-mes"></canvas></div></div>
-      <div><div class="caption">Por Caminhão</div><div class="chart-box"><canvas id="chart-qtd-veiculo"></canvas></div></div>
-    </div>`;
+    <div class="chart-box"><canvas id="chart-qtd-mes"></canvas></div>`;
 
-  html += `<div class="divider"></div><div class="section-title">Custo por KM Rodado (por Caminhão)</div>
+  html += `<div class="divider"></div><div class="section-title">Custo por KM Rodado por Mês</div>
     <div id="dash-custo-km"></div>`;
 
   html += `<div class="divider"></div><div class="section-title">Últimas viagens lançadas</div>
@@ -111,54 +101,50 @@ function renderDashboardConteudo() {
 
   conteudo.innerHTML = html;
 
-  // Receita/Despesa/Lucro por Caminhão
-  const receitaVeiculo = somarPorChave(viagens, v => v.veiculo, v => v.faturamento);
-  const despesaVeiculoViagem = somarPorChave(viagens, v => v.veiculo, v => v.pedagio + v.outros_custos);
-  const despesaVeiculoComb = somarPorChave(abastecimentos, a => a.veiculo, a => a.valor_pago);
-  const despesaVeiculo = somarDuasChaves(despesaVeiculoViagem, despesaVeiculoComb);
-  const catsVeiculo = [...new Set([...Object.keys(receitaVeiculo), ...Object.keys(despesaVeiculo)])].sort();
-  graficoRdlEmpilhado('chart-rdl-veiculo', catsVeiculo, catsVeiculo.map(c => receitaVeiculo[c] || 0), catsVeiculo.map(c => despesaVeiculo[c] || 0));
-
-  // Receita/Despesa/Lucro por Motorista
-  const receitaMotorista = somarPorChave(viagens, v => v.motorista, v => v.faturamento);
-  const despesaMotoristaViagem = somarPorChave(viagens, v => v.motorista, v => v.pedagio + v.outros_custos);
-  const despesaMotoristaComb = somarPorChave(abastecimentos, a => a.motorista, a => a.valor_pago);
-  const despesaMotorista = somarDuasChaves(despesaMotoristaViagem, despesaMotoristaComb);
-  const catsMotorista = [...new Set([...Object.keys(receitaMotorista), ...Object.keys(despesaMotorista)])].sort();
-  graficoRdlEmpilhado('chart-rdl-motorista', catsMotorista, catsMotorista.map(c => receitaMotorista[c] || 0), catsMotorista.map(c => despesaMotorista[c] || 0));
-
   // Receita/Despesa/Lucro por Mês
   const mesAnoFn = iso => { const d = parseISO(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
-  const receitaMes = somarPorChave(viagens, v => mesAnoFn(v.data), v => v.faturamento);
-  const despesaMesViagem = somarPorChave(viagens, v => mesAnoFn(v.data), v => v.pedagio + v.outros_custos);
-  const despesaMesComb = somarPorChave(abastecimentos, a => mesAnoFn(a.data), a => a.valor_pago);
+  const rotuloMesAno = mesAno => {
+    const [ano, mes] = mesAno.split('-').map(Number);
+    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${meses[mes - 1]}/${String(ano).slice(-2)}`;
+  };
+  const viagensHistorico = viagensParaLista(STATE.dados).filter(v =>
+    (veiculoSel === 'Todos' || v.veiculo === veiculoSel) &&
+    (motoristaSel === 'Todos' || v.motorista === motoristaSel)
+  );
+  const abastecimentosHistorico = abastecimentosParaLista(STATE.dados).filter(a =>
+    (veiculoSel === 'Todos' || a.veiculo === veiculoSel) &&
+    (motoristaSel === 'Todos' || a.motorista === motoristaSel)
+  );
+  const receitaMes = somarPorChave(viagensHistorico, v => mesAnoFn(v.data), v => v.faturamento);
+  const despesaMesViagem = somarPorChave(viagensHistorico, v => mesAnoFn(v.data), v => v.pedagio + v.outros_custos);
+  const despesaMesComb = somarPorChave(abastecimentosHistorico, a => mesAnoFn(a.data), a => a.valor_pago);
   const despesaMes = somarDuasChaves(despesaMesViagem, despesaMesComb);
   const catsMes = [...new Set([...Object.keys(receitaMes), ...Object.keys(despesaMes)])].sort();
-  graficoRdlEmpilhado('chart-rdl-mes', catsMes, catsMes.map(c => receitaMes[c] || 0), catsMes.map(c => despesaMes[c] || 0));
+  const rotulosMes = catsMes.map(rotuloMesAno);
+  graficoRdlColunas('chart-rdl-mes', rotulosMes, catsMes.map(c => receitaMes[c] || 0), catsMes.map(c => despesaMes[c] || 0));
 
-  // Quantidade por Mês / por Caminhão
-  const qtdMes = somarPorChave(viagens, v => mesAnoFn(v.data), () => 1);
+  // A série mensal histórica não depende do filtro de datas.
+  const qtdMes = somarPorChave(viagensHistorico, v => mesAnoFn(v.data), () => 1);
   const catsQtdMes = Object.keys(qtdMes).sort();
-  graficoQuantidade('chart-qtd-mes', catsQtdMes, catsQtdMes.map(c => qtdMes[c]));
+  graficoQuantidade('chart-qtd-mes', catsQtdMes.map(rotuloMesAno), catsQtdMes.map(c => qtdMes[c]));
 
-  const qtdVeiculo = somarPorChave(viagens, v => v.veiculo, () => 1);
-  const catsQtdVeiculo = Object.keys(qtdVeiculo).sort();
-  graficoQuantidade('chart-qtd-veiculo', catsQtdVeiculo, catsQtdVeiculo.map(c => qtdVeiculo[c]));
-
-  // Custo por KM rodado
-  const kmVeiculo = somarPorChave(abastecimentos.filter(a => a.km_rodado != null && a.km_rodado > 0), a => a.veiculo, a => a.km_rodado);
-  const linhasCustoKm = [];
-  for (const veic of Object.keys(despesaVeiculo)) {
-    const kmTotal = kmVeiculo[veic] || 0;
-    if (kmTotal > 0) linhasCustoKm.push({ veiculo: veic, custo_por_km: despesaVeiculo[veic] / kmTotal });
-  }
+  // Custo mensal por KM: despesas do mês divididas pelos KM registrados no mês.
+  // Série histórica: não depende do filtro de datas (só de caminhão/motorista).
+  const despesaKmMes = despesaMes;
+  const kmMes = somarPorChave(
+    abastecimentosHistorico.filter(a => a.km_rodado != null && a.km_rodado > 0),
+    a => mesAnoFn(a.data),
+    a => a.km_rodado
+  );
+  const catsCustoKm = Object.keys(kmMes).sort();
+  const valoresCustoKm = catsCustoKm.map(mes => despesaKmMes[mes] / kmMes[mes]);
   const boxCustoKm = qs('#dash-custo-km');
-  if (linhasCustoKm.length) {
-    linhasCustoKm.sort((a, b) => b.custo_por_km - a.custo_por_km);
+  if (catsCustoKm.length) {
     boxCustoKm.innerHTML = `<div class="chart-box"><canvas id="chart-custo-km"></canvas></div>`;
-    graficoCustoKm('chart-custo-km', linhasCustoKm.map(l => l.veiculo), linhasCustoKm.map(l => l.custo_por_km));
+    graficoCustoKm('chart-custo-km', catsCustoKm.map(rotuloMesAno), valoresCustoKm);
   } else {
-    boxCustoKm.innerHTML = `<div class="alerta alerta-info">Sem quilometragem suficiente registrada (é necessário ao menos 2 abastecimentos por caminhão dentro do filtro selecionado) para calcular o custo por KM.</div>`;
+    boxCustoKm.innerHTML = `<div class="alerta alerta-info">Sem quilometragem registrada para calcular o custo por KM mensal.</div>`;
   }
 
   // Últimas viagens
