@@ -22,12 +22,13 @@ async function fazerLogin() {
   btn.disabled = true; btn.textContent = 'Entrando...';
   try {
     const usuarioNorm = usuarioIn.trim().toLowerCase();
-    const usuario = await buscarUsuarioLogin(usuarioNorm);
     const senhaHash = await hashPw(senhaIn);
+    const usuario = await loginDb(usuarioNorm, senhaHash);
 
-    if (!usuario || usuario.senha_hash !== senhaHash) {
+    if (!usuario) {
       mostrarMsg('#msg-login', 'error', 'Usuário ou senha inválidos.');
     } else {
+      SESSAO_TOKEN = usuario.token;
       STATE.usuario = { id: usuario.id, nome: usuario.nome, usuario: usuario.usuario, perfil: usuario.perfil };
       STATE.categoriaAtual = null;
       STATE.paginaAtual = null;
@@ -43,6 +44,7 @@ async function fazerLogin() {
 }
 
 function fazerLogout() {
+  logoutDb();
   STATE.usuario = null;
   STATE.categoriaAtual = null;
   STATE.paginaAtual = null;

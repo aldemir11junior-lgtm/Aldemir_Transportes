@@ -4,7 +4,18 @@
 //   usuarios, motoristas, veiculos, carretas, viagens, abastecimentos
 // ─────────────────────────────────────────────────────────────────────────
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Token da sessão: o banco só libera as tabelas para quem manda este cabeçalho
+// (ver sql/rls_policies.sql). Ele é obtido no login e descartado no logout.
+let SESSAO_TOKEN = null;
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: {
+    fetch: (url, opcoes = {}) => {
+      const headers = new Headers(opcoes.headers);
+      if (SESSAO_TOKEN) headers.set('x-sessao-token', SESSAO_TOKEN);
+      return fetch(url, { ...opcoes, headers });
+    },
+  },
+});
 
 function checarErro(error, contexto) {
   if (error) {
@@ -13,43 +24,43 @@ function checarErro(error, contexto) {
   }
 }
 
-// ─── USUÁRIOS ──────────────────────────────────────────────────────────
-async function buscarUsuarioLogin(usuarioNorm) {
-  const { data, error } = await sb.from('usuarios')
-    .select('id, nome, usuario, senha_hash, perfil').eq('usuario', usuarioNorm).maybeSingle();
-  checarErro(error, 'Erro ao buscar usuário');
+// ─── USUÁRIOS (todas as operações passam por funções do banco) ─────────
+async function loginDb(usuarioNorm, senhaHash) {
+  const { data, error } = await sb.rpc('login_app', { p_usuario: usuarioNorm, p_senha_hash: senhaHash });
+  checarErro(error, 'Erro ao entrar');
   return data || null;
 }
+async function logoutDb() {
+  try { await sb.rpc('logout_app'); } catch (e) { console.warn('Falha ao encerrar sessão:', e); }
+  SESSAO_TOKEN = null;
+}
 async function listarUsuarios() {
-  const { data, error } = await sb.from('usuarios').select('id, nome, usuario, perfil').order('nome');
+  const { data, error } = await sb.rpc('listar_usuarios_app');
   checarErro(error, 'Erro ao carregar usuários');
   return data || [];
 }
 async function buscarUsuarioPorId(id) {
-  const { data, error } = await sb.from('usuarios').select('id, nome, usuario, perfil').eq('id', id).maybeSingle();
+  const { data, error } = await sb.rpc('buscar_usuario_app', { p_id: id });
   checarErro(error, 'Erro ao buscar usuário');
   return data || null;
 }
 async function usuarioLoginExiste(usuarioNorm, excluirId) {
-  let query = sb.from('usuarios').select('id').eq('usuario', usuarioNorm);
-  if (excluirId) query = query.neq('id', excluirId);
-  const { data, error } = await query;
+  const { data, error } = await sb.rpc('usuario_login_existe_app', { p_usuario: usuarioNorm, p_excluir_id: excluirId || null });
   checarErro(error, 'Erro ao verificar usuário');
-  return (data || []).length > 0;
+  return !!data;
 }
 async function criarUsuarioDb(nome, usuarioNorm, perfil, senha) {
   const senhaHash = await hashPw(senha);
-  const { error } = await sb.from('usuarios').insert({ nome, usuario: usuarioNorm, perfil, senha_hash: senhaHash });
+  const { error } = await sb.rpc('criar_usuario_app', { p_nome: nome, p_usuario: usuarioNorm, p_perfil: perfil, p_senha_hash: senhaHash });
   checarErro(error, 'Erro ao criar usuário');
 }
 async function atualizarUsuarioDb(id, nome, usuarioNorm, perfil, senha) {
-  const campos = { nome, usuario: usuarioNorm, perfil };
-  if (senha) campos.senha_hash = await hashPw(senha);
-  const { error } = await sb.from('usuarios').update(campos).eq('id', id);
+  const senhaHash = senha ? await hashPw(senha) : null;
+  const { error } = await sb.rpc('atualizar_usuario_app', { p_id: id, p_nome: nome, p_usuario: usuarioNorm, p_perfil: perfil, p_senha_hash: senhaHash });
   checarErro(error, 'Erro ao atualizar usuário');
 }
 async function excluirUsuarioDb(id) {
-  const { error } = await sb.from('usuarios').delete().eq('id', id);
+  const { error } = await sb.rpc('excluir_usuario_app', { p_id: id });
   checarErro(error, 'Erro ao excluir usuário');
 }
 
